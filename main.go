@@ -13,17 +13,22 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 	client := NewMoodleClient(os.Getenv("serviceUrl"), true)
-	err = client.login(os.Getenv("username"), os.Getenv("password"))
+	err = client.Login(os.Getenv("username"), os.Getenv("password"))
 	if err != nil {
 		logrus.Fatal("Failed to login: ", err.Error())
 	}
 
-	courses, err := client.CourseApi.getCourses()
+	courses, err := client.CourseApi.GetCourses(false)
 
 	if err != nil {
 		logrus.Fatal("Failed to get courses: ", err.Error())
 	}
-	for _, course := range courses {
-		logrus.Println(course.Fullname)
+
+	mathCourse := courses[6]
+	err = client.CourseApi.FetchCourseContents(&mathCourse)
+	if err != nil {
+		logrus.Fatal("Could not retrieve course contents: ", err.Error())
 	}
+
+	client.CourseApi.GetAssignModule(getAllAssignModules(&mathCourse)[0])
 }

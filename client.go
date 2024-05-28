@@ -35,7 +35,7 @@ func NewMoodleClient(serviceUrl string, skipSSL bool) *MoodleClient {
 	return client
 }
 
-func (mc *MoodleClient) login(username string, password string) error {
+func (mc *MoodleClient) Login(username string, password string) error {
 	loginURL := fmt.Sprintf("%s/login/token.php", mc.ServiceUrl)
 
 	data := url.Values{}
@@ -77,10 +77,50 @@ func (mc *MoodleClient) login(username string, password string) error {
 		return fmt.Errorf("failed to obtain token: %s", tokenResp.Error)
 	}
 
-	logrus.Info("Successfully logged in")
-
 	mc.Token = tokenResp.Token
 	mc.PrivateToken = tokenResp.PrivateToken
 	mc.Username = username
 	return nil
+}
+
+func (mc *MoodleClient) makeRequest(function string, params map[string]string, url string) ([]byte, error) {
+	webserviceURL := fmt.Sprintf("%s%s", mc.ServiceUrl, url)
+
+	params["wstoken"] = mc.Token
+	params["wsfunction"] = function
+	params["moodlewsrestformat"] = "json"
+	req, err := http.NewRequest("GET", webserviceURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	q := req.URL.Query()
+	for key, value := range params {
+		q.Add(key, value)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: mc.SkipSSL},
+	}
+
+	client := &http.Client{Transport: tr}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func (mc *MoodleClient) makeWebserviceRequest(function string, params map[string]string) ([]byte, error) {
+	return mc.makeRequest(function, params, "/webservice/rest/server.php")
+}
+func (mc *MoodleClient) makeModRequest(function string, params map[string]string) ([]byte, error) {
+	return mc.makeRequest(function, params, "/mod/assign/view.php")
 }

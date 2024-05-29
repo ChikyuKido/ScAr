@@ -40,14 +40,15 @@ type CourseSection struct {
 // CourseModule represents a module within a section.
 // It includes details like the module name, description, URL, and its contents.
 type CourseModule struct {
-	ID          int                `json:"id"`
-	Description string             `json:"description"`
-	URL         string             `json:"url"`
-	Name        string             `json:"name"`
-	ModIcon     string             `json:"modicon"`
-	ModName     string             `json:"modname"`
-	Dates       []CourseModuleDate `json:"dates"`
-	Contents    []CourseContent    `json:"contents"`
+	ComponentID  int                `json:"id"`
+	AssignmentID int                `json:"instance"`
+	Description  string             `json:"description"`
+	URL          string             `json:"url"`
+	Name         string             `json:"name"`
+	ModIcon      string             `json:"modicon"`
+	ModName      string             `json:"modname"`
+	Dates        []CourseModuleDate `json:"dates"`
+	Contents     []CourseContent    `json:"contents"`
 }
 
 // CourseContent represents the content of a module.
@@ -82,7 +83,7 @@ func (courseApi *CourseApi) GetCourses(fetchSectionsInCourse bool) ([]Course, er
 		return nil, err
 	}
 	var coursesResp CoursesResponse
-	if err := json.Unmarshal([]byte(body), &coursesResp); err != nil {
+	if err := json.Unmarshal(body, &coursesResp); err != nil {
 		return nil, err
 	}
 
@@ -124,6 +125,7 @@ func (courseApi *CourseApi) FetchCourseContents(course *Course) error {
 	if body[0] == '{' {
 		return fmt.Errorf("error in response json: %v", string(body))
 	}
+	logrus.Info(string(body))
 	var sections []CourseSection
 	if err := json.Unmarshal(body, &sections); err != nil {
 		return err
@@ -133,9 +135,9 @@ func (courseApi *CourseApi) FetchCourseContents(course *Course) error {
 	return nil
 }
 
-func (courseApi *CourseApi) GetAssignModule(module CourseModule) error {
-	var body, err = courseApi.client.makeWebserviceRequest("mod_assign_get_assignments", map[string]string{"courseids[0]": strconv.Itoa(module.ID)})
-
+func (courseApi *CourseApi) GetAssignModule(module *CourseModule) error {
+	var body, err = courseApi.client.makeWebserviceRequest("mod_assign_get_submission_status", map[string]string{"assignid": strconv.Itoa(module.AssignmentID)})
+	logrus.Info(module.AssignmentID)
 	if err != nil {
 		return err
 	}

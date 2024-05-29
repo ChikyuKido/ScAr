@@ -30,5 +30,5 @@ func main() {
 		logrus.Fatal("Could not retrieve course contents: ", err.Error())
 	}
 
-	client.CourseApi.GetAssignModule(getAllAssignModules(&mathCourse)[0])
+	client.CourseApi.GetAssignModule(&getAllAssignModules(&mathCourse)[0])
 }

@@ -1,4 +1,4 @@
-package main
+package moodle
 
 import (
 	"crypto/tls"
@@ -26,11 +26,11 @@ type MoodleClient struct {
 	CourseApi    *CourseApi
 }
 
-func NewMoodleClient(serviceUrl string, skipSSL bool) *MoodleClient {
+func NewMoodleClient(skipSSL bool) *MoodleClient {
 	if skipSSL {
 		logrus.Info("Skipping SSL verification for all requests")
 	}
-	client := &MoodleClient{ServiceUrl: serviceUrl, SkipSSL: skipSSL}
+	client := &MoodleClient{SkipSSL: skipSSL}
 	client.CourseApi = newCourseApi(client)
 	return client
 }

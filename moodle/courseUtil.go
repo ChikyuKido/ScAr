@@ -1,4 +1,4 @@
-package main
+package moodle
 
 func getAllResourcesModulesByModName(course *Course, modName string) []CourseModule {
 	var modules []CourseModule

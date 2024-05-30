@@ -2,33 +2,28 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"github.com/sirupsen/logrus"
-	"log"
-	"os"
+	"github.com/rivo/tview"
+	"scar/moodle"
+	"scar/util"
 )
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		panic(err)
 	}
-	client := NewMoodleClient(os.Getenv("serviceUrl"), true)
-	err = client.Login(os.Getenv("username"), os.Getenv("password"))
-	if err != nil {
-		logrus.Fatal("Failed to login: ", err.Error())
+	app := tview.NewApplication()
+	list := tview.NewList()
+	var screens = []util.Screen{moodle.GetMoodleScreen(app, list)}
+	for i, screen := range screens {
+		list.AddItem(screen.Name, "", rune(i+1+'0'), func() {
+			app.SetRoot(screen.Root, true)
+		})
 	}
+	list.SetTitle("SCAR").SetBorder(true)
 
-	courses, err := client.CourseApi.GetCourses(false)
-
-	if err != nil {
-		logrus.Fatal("Failed to get courses: ", err.Error())
+	app.SetFocus(list)
+	if err := app.SetRoot(list, true).Run(); err != nil {
+		panic(err)
 	}
-
-	mathCourse := courses[6]
-	err = client.CourseApi.FetchCourseContents(&mathCourse)
-	if err != nil {
-		logrus.Fatal("Could not retrieve course contents: ", err.Error())
-	}
-
-	client.CourseApi.GetAssignModule(&getAllAssignModules(&mathCourse)[0])
 }

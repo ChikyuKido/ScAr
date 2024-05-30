@@ -1,4 +1,4 @@
-package main
+package moodle
 
 import (
 	"encoding/json"

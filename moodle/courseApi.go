@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"log"
+	"scar/util"
 	"strconv"
 	"strings"
 )
@@ -13,6 +15,11 @@ import (
 type CoursesResponse struct {
 	Courses []Course `json:"courses"`
 	Error   string   `json:"error"`
+}
+
+type CoursesModAssignResponse struct {
+	CourseModAssigns []CourseModAssign `json:"courses"`
+	Error            string            `json:"error"`
 }
 
 // Course represents a course the user is enrolled in.
@@ -40,15 +47,15 @@ type CourseSection struct {
 // CourseModule represents a module within a section.
 // It includes details like the module name, description, URL, and its contents.
 type CourseModule struct {
-	ComponentID  int                `json:"id"`
-	AssignmentID int                `json:"instance"`
-	Description  string             `json:"description"`
-	URL          string             `json:"url"`
-	Name         string             `json:"name"`
-	ModIcon      string             `json:"modicon"`
-	ModName      string             `json:"modname"`
-	Dates        []CourseModuleDate `json:"dates"`
-	Contents     []CourseContent    `json:"contents"`
+	ComponentID int                `json:"id"`
+	ID          int                `json:"instance"`
+	Description string             `json:"description"`
+	URL         string             `json:"url"`
+	Name        string             `json:"name"`
+	ModIcon     string             `json:"modicon"`
+	ModName     string             `json:"modname"`
+	Dates       []CourseModuleDate `json:"dates"`
+	Contents    []CourseContent    `json:"contents"`
 }
 
 // CourseContent represents the content of a module.
@@ -69,11 +76,48 @@ type CourseModuleDate struct {
 }
 
 type CourseApi struct {
-	client *MoodleClient
+	client      *MoodleClient
+	courseCache CourseCache
+}
+
+// CourseModAssign contains the data for assignments for one course
+type CourseModAssign struct {
+	ID          int                   `json:"id"`
+	Assignments []CourseModAssignment `json:"assignments"`
+}
+
+type CourseModAssignment struct {
+	ComponentID         int          `json:"cmid"`
+	AssignmentID        int          `json:"id"`
+	Intro               string       `json:"intro"`
+	SubmissionStatement string       `json:"submissionstatement"`
+	IntroAttachment     []MoodleFile `json:"introattachments"`
+}
+
+type MoodleFile struct {
+	FileName string `json:"filename"`
+	FileSize int64  `json:"filesize"`
+	FileURL  string `json:"fileurl"`
+}
+
+type CourseCache struct {
+	CourseModAssignments []CourseModAssignment `json:"assignments"`
+}
+
+type DownloadAssignmentData struct {
+	ID                         int      `json:"id"`
+	CMID                       int      `json:"cmid"`
+	CourseID                   int      `json:"courseid"`
+	Name                       string   `json:"name"`
+	Intro                      string   `json:"intro"`
+	ModName                    string   `json:"modname"`
+	SubmissionStatement        string   `json:"submissionstatement"`
+	IntroAttachmentsNames      []string `json:"introattachmentsnames"`
+	SubmissionAttachmentsNames []string `json:"submissionattachmentsnames"`
 }
 
 func newCourseApi(client *MoodleClient) *CourseApi {
-	return &CourseApi{client}
+	return &CourseApi{client, CourseCache{}}
 }
 
 func (courseApi *CourseApi) GetCourses(fetchSectionsInCourse bool) ([]Course, error) {
@@ -110,6 +154,30 @@ func (courseApi *CourseApi) GetCourses(fetchSectionsInCourse bool) ([]Course, er
 		fmt.Println()
 
 	}
+	if len(courseApi.courseCache.CourseModAssignments) == 0 {
+		logrus.Info("Assignments not cached yet. Requesting it now")
+		var ids []string
+		for _, course := range coursesResp.Courses {
+			ids = append(ids, strconv.Itoa(course.ID))
+		}
+		var params = map[string]string{}
+		for i := 0; i < len(ids); i++ {
+			params[fmt.Sprintf("courseids[%d]", i)] = ids[i]
+		}
+		body, err = courseApi.client.makeWebserviceRequest("mod_assign_get_assignments", params)
+		var courseModAssignResponse CoursesModAssignResponse
+		if err := json.Unmarshal(body, &courseModAssignResponse); err != nil {
+			return nil, err
+		}
+		if len(courseModAssignResponse.Error) != 0 {
+			return nil, fmt.Errorf("%v", courseModAssignResponse.Error)
+		}
+		for _, course := range courseModAssignResponse.CourseModAssigns {
+			courseApi.courseCache.CourseModAssignments = append(courseApi.courseCache.CourseModAssignments, course.Assignments...)
+		}
+		logrus.Info("Found ", len(courseApi.courseCache.CourseModAssignments), " Assignments")
+	}
+
 	return coursesResp.Courses, nil
 }
 
@@ -125,24 +193,111 @@ func (courseApi *CourseApi) FetchCourseContents(course *Course) error {
 	if body[0] == '{' {
 		return fmt.Errorf("error in response json: %v", string(body))
 	}
-	logrus.Info(string(body))
 	var sections []CourseSection
 	if err := json.Unmarshal(body, &sections); err != nil {
 		return err
 	}
 	course.Sections = sections
-
 	return nil
 }
 
-func (courseApi *CourseApi) GetAssignModule(module *CourseModule) error {
-	var body, err = courseApi.client.makeWebserviceRequest("mod_assign_get_submission_status", map[string]string{"assignid": strconv.Itoa(module.AssignmentID)})
-	logrus.Info(module.AssignmentID)
+func (courseApi *CourseApi) DownloadAssignModule(module *CourseModule, basePath string) error {
+	if module.ModName != "assign" {
+		logrus.Fatal("Module is not a assignment")
+	}
+	var body, err = courseApi.client.makeWebserviceRequest("mod_assign_get_submission_status", map[string]string{"assignid": strconv.Itoa(module.ID)})
+	if err != nil {
+		return err
+	}
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		log.Fatalf("Error unmarshalling JSON: %v", err)
+	}
+
+	var submissionMoodleFiles []MoodleFile
+	if value, ok := result["lastattempt"]; ok {
+		lastAttempt := value.(map[string]interface{})
+		if value, ok := lastAttempt["submission"]; ok {
+			submission := value.(map[string]interface{})
+			if value, ok := submission["plugins"]; ok {
+				plugins := value.([]interface{})
+
+				for _, plugin := range plugins {
+					pluginMap := plugin.(map[string]interface{})
+					if pluginMap["type"] == "file" {
+						fileAreas := pluginMap["fileareas"].([]interface{})
+						for _, fileArea := range fileAreas {
+							fileAreaMap := fileArea.(map[string]interface{})
+							files := fileAreaMap["files"].([]interface{})
+							for _, file := range files {
+								fileMap := file.(map[string]interface{})
+								moodleFile := MoodleFile{
+									FileName: fileMap["filename"].(string),
+									FileSize: int64(fileMap["filesize"].(float64)),
+									FileURL:  fileMap["fileurl"].(string),
+								}
+								submissionMoodleFiles = append(submissionMoodleFiles, moodleFile)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	var submissionMoodleFileNames []string
+	for _, file := range submissionMoodleFiles {
+		submissionMoodleFileNames = append(submissionMoodleFileNames, file.FileName)
+	}
+
+	var courseAssignment = courseApi.getCourseModAssignment(module)
+	var introMoodleFileNames []string
+	for _, file := range courseAssignment.IntroAttachment {
+		introMoodleFileNames = append(introMoodleFileNames, file.FileName)
+	}
+
+	var data DownloadAssignmentData
+	data.ID = module.ID
+	data.CMID = module.ComponentID
+	data.Name = module.Name
+	data.ModName = module.ModName
+	data.SubmissionAttachmentsNames = submissionMoodleFileNames
+	data.Intro = courseAssignment.Intro
+	data.SubmissionStatement = courseAssignment.SubmissionStatement
+	data.IntroAttachmentsNames = introMoodleFileNames
+
+	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+	introFilesPath := fmt.Sprintf("%s/introfiles", modulePath)
+	submissionFilesPath := fmt.Sprintf("%s/submissions", modulePath)
+
+	err = util.SaveStructToJSON(data, modulePath+"/assignment.json")
 	if err != nil {
 		return err
 	}
 
-	logrus.Info(string(body))
+	for _, file := range submissionMoodleFiles {
+		err := courseApi.client.downloadFile(file.FileURL, submissionFilesPath+"/"+file.FileName, file.FileSize)
+		if err != nil {
+			return err
+		}
+	}
+	for _, file := range courseAssignment.IntroAttachment {
+		err := courseApi.client.downloadFile(file.FileURL, introFilesPath+"/"+file.FileName, file.FileSize)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 
+}
+
+func (courseApi *CourseApi) getCourseModAssignment(module *CourseModule) *CourseModAssignment {
+	for _, assignment := range courseApi.courseCache.CourseModAssignments {
+		if assignment.AssignmentID == module.ID {
+			return &assignment
+		}
+	}
+
+	return nil
 }

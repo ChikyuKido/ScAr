@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 )
 
 type TokenResponse struct {
@@ -123,4 +125,58 @@ func (mc *MoodleClient) makeWebserviceRequest(function string, params map[string
 }
 func (mc *MoodleClient) makeModRequest(function string, params map[string]string) ([]byte, error) {
 	return mc.makeRequest(function, params, "/mod/assign/view.php")
+}
+
+func (mc *MoodleClient) DownloadFile(url string, path string, filesize int64) error {
+	return mc.downloadFile(url, path, filesize)
+}
+
+func (mc *MoodleClient) downloadFile(url string, path string, filesize int64) error {
+	fileInfo, err := os.Stat(path)
+	if err == nil {
+		if filesize == fileInfo.Size() {
+			logrus.Debug("Skip file download ", path)
+			return nil
+		}
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	q := req.URL.Query()
+	q.Add("token", mc.Token)
+	req.URL.RawQuery = q.Encode()
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: mc.SkipSSL},
+	}
+	client := &http.Client{Transport: tr}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download file: status code %d", resp.StatusCode)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+		return err
+	}
+
+	outFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(outFile, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

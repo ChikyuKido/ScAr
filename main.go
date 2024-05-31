@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"github.com/rivo/tview"
+	"github.com/sirupsen/logrus"
+	"os"
 	"scar/moodle"
-	"scar/util"
 )
 
 func main() {
@@ -12,6 +12,40 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	client := moodle.NewMoodleClient(true)
+	client.ServiceUrl = os.Getenv("serviceUrl")
+	err = client.Login(os.Getenv("username"), os.Getenv("password"))
+	if err != nil {
+		logrus.Fatal("Failed to login: ", err.Error())
+	}
+
+	courses, err := client.CourseApi.GetCourses(false)
+
+	if err != nil {
+		logrus.Fatal("Failed to get courses: ", err.Error())
+	}
+
+	client.CourseApi.FetchCourseContents(&courses[0])
+	for _, module := range moodle.GetAllAssignModules(&courses[0]) {
+		err = client.CourseApi.DownloadAssignModule(&module, "archiver/moodle/"+courses[0].ShortName)
+		if err != nil {
+			logrus.Fatal("Could not retrieve course contents: ", err.Error())
+		}
+	}
+
+	/**mathCourse := courses[0]
+	err = client.CourseApi.FetchCourseContents(&mathCourse)
+	if err != nil {
+		logrus.Fatal("Could not retrieve course contents: ", err.Error())
+	}
+
+	err = client.CourseApi.DownloadAssignModule(&moodle.GetAllAssignModules(&mathCourse)[0], "archiver/moodle/pos")
+	if err != nil {
+		logrus.Fatal("Could not retrieve course contents: ", err.Error())
+	}*/
+
+	/**
 	app := tview.NewApplication()
 	list := tview.NewList()
 	var screens = []util.Screen{moodle.GetMoodleScreen(app, list)}
@@ -25,5 +59,5 @@ func main() {
 	app.SetFocus(list)
 	if err := app.SetRoot(list, true).Run(); err != nil {
 		panic(err)
-	}
+	}*/
 }

@@ -1,6 +1,6 @@
 package moodle
 
-func getAllResourcesModulesByModName(course *Course, modName string) []CourseModule {
+func GetAllResourcesModulesByModName(course *Course, modName string) []CourseModule {
 	var modules []CourseModule
 	for _, section := range course.Sections {
 		for _, module := range section.Modules {
@@ -11,15 +11,15 @@ func getAllResourcesModulesByModName(course *Course, modName string) []CourseMod
 	}
 	return modules
 }
-func getAllResourceModules(course *Course) []CourseModule {
-	return getAllResourcesModulesByModName(course, "resource")
+func GetAllResourceModules(course *Course) []CourseModule {
+	return GetAllResourcesModulesByModName(course, "resource")
 }
-func getAllURLModules(course *Course) []CourseModule {
-	return getAllResourcesModulesByModName(course, "url")
+func GetAllURLModules(course *Course) []CourseModule {
+	return GetAllResourcesModulesByModName(course, "url")
 }
-func getAllAssignModules(course *Course) []CourseModule {
-	return getAllResourcesModulesByModName(course, "assign")
+func GetAllAssignModules(course *Course) []CourseModule {
+	return GetAllResourcesModulesByModName(course, "assign")
 }
-func getAllLabelModules(course *Course) []CourseModule {
-	return getAllResourcesModulesByModName(course, "label")
+func GetAllLabelModules(course *Course) []CourseModule {
+	return GetAllResourcesModulesByModName(course, "label")
 }

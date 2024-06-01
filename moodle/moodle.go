@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/sirupsen/logrus"
 	"os"
 	"scar/util"
+	"strings"
+	"time"
 )
 
 type MoodleCache struct {
@@ -48,12 +51,12 @@ func GetDownloadView(app *tview.Application, mainScreen tview.Primitive) *tview.
 	}
 	var list = tview.NewList()
 	list.AddItem("0) All", "All Courses", 0, func() {
-
+		app.SetRoot(GetProgressView(app, mainScreen, -1), true)
 	})
 	for i, course := range moodleCache.course {
 		list.AddItem(fmt.Sprintf("%d) %s", i+1, course.ShortName),
 			fmt.Sprintf("%s (%d)", course.Fullname, course.ID), 0, func() {
-
+				app.SetRoot(GetProgressView(app, mainScreen, i), true)
 			})
 	}
 	list.AddItem(fmt.Sprintf("%d) Back", len(moodleCache.course)+1), "", 0, func() {
@@ -129,4 +132,68 @@ func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) 
 	}
 
 	return modal(flex, 40, 10)
+}
+
+func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index int) tview.Primitive {
+	var coursesSize = 1
+	var coursesToDownload []Course
+	if index == -1 {
+		coursesSize = len(moodleCache.course)
+		coursesToDownload = moodleCache.course
+	} else {
+		coursesToDownload = []Course{moodleCache.course[index]}
+	}
+	courseProgressBar := tview.NewTextView().SetScrollable(false)
+	modulesProgressBar := tview.NewTextView().SetScrollable(false)
+	logTextView := tview.NewTextView().
+		SetChangedFunc(func() {
+			app.Draw()
+		})
+	logTextView.SetDynamicColors(true).
+		SetRegions(true).
+		SetWordWrap(true).
+		SetBorder(true).
+		SetTitle("Log Output")
+	var running = true
+	coursesChan := make(chan int, coursesSize)
+	modulesChan := make(chan int, 1)
+	go func() {
+		for running {
+			modulesTotal := cap(modulesChan)
+			coursesTotal := cap(coursesChan)
+			modulesProgressCount := len(modulesChan)
+			coursesProgressCount := len(coursesChan)
+			modulesProgress := (modulesProgressCount) * 100 / modulesTotal
+			coursesProgress := (coursesProgressCount) * 100 / coursesTotal
+			modulesProgressBar.SetText(fmt.Sprintf("Module [%d|%d]: [%-50s] %d%%", modulesProgressCount, modulesTotal, strings.Repeat("=", modulesProgress/2), modulesProgress))
+			courseProgressBar.SetText(fmt.Sprintf("Course [%d|%d]: [%-50s] %d%%", coursesProgressCount, coursesTotal, strings.Repeat("=", coursesProgress/2), coursesProgress))
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	go func() {
+		for i, course := range coursesToDownload {
+			err := moodleClient.CourseApi.FetchCourseContents(&course)
+			if err != nil {
+				logrus.Error("Failed to download Course: ", err.Error())
+				continue
+			}
+			modulesChan = make(chan int, len(GetAllModules(&course)))
+
+			err = moodleClient.CourseApi.DownloadCourse(&course, "/home/kido/archiver/moodle", modulesChan, logTextView)
+			if err != nil {
+				logrus.Error("Failed to download Course: ", err.Error())
+				continue
+			}
+
+			coursesChan <- i + 1
+		}
+		app.SetRoot(GetDownloadView(app, mainScreen), true)
+		running = false
+	}()
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(courseProgressBar, 0, 1, false).
+			AddItem(modulesProgressBar, 0, 1, false), 0, 1, false).
+		AddItem(logTextView, 0, 8, true)
+	return flex
 }

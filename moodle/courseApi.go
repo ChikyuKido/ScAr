@@ -3,6 +3,7 @@ package moodle
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
 	"log"
 	"scar/util"
@@ -62,8 +63,8 @@ type CourseModule struct {
 // It includes information such as the type, filename, file size, and URL.
 type CourseContent struct {
 	Type     string `json:"type"`
-	Filename string `json:"filename"`
-	FileSize int64  `json:"size"`
+	FileName string `json:"filename"`
+	FileSize int64  `json:"filesize"`
 	FileURL  string `json:"fileurl"`
 }
 
@@ -107,13 +108,48 @@ type CourseCache struct {
 type DownloadAssignmentData struct {
 	ID                         int      `json:"id"`
 	CMID                       int      `json:"cmid"`
-	CourseID                   int      `json:"courseid"`
 	Name                       string   `json:"name"`
 	Intro                      string   `json:"intro"`
 	ModName                    string   `json:"modname"`
 	SubmissionStatement        string   `json:"submissionstatement"`
 	IntroAttachmentsNames      []string `json:"introattachmentsnames"`
 	SubmissionAttachmentsNames []string `json:"submissionattachmentsnames"`
+}
+type DownloadResourceData struct {
+	ID               int      `json:"id"`
+	CMID             int      `json:"cmid"`
+	Name             string   `json:"name"`
+	ModName          string   `json:"modname"`
+	ContentFileNames []string `json:"contentfilenames"`
+}
+type DownloadURLData struct {
+	ID          int      `json:"id"`
+	CMID        int      `json:"cmid"`
+	Name        string   `json:"name"`
+	ModName     string   `json:"modname"`
+	ContentURLs []string `json:"contenturls"`
+}
+type DownloadLabelData struct {
+	ID          int    `json:"id"`
+	CMID        int    `json:"cmid"`
+	Name        string `json:"name"`
+	ModName     string `json:"modname"`
+	Description string `json:"description"`
+}
+type DownloadCourse struct {
+	ID              int                     `json:"id"`
+	Fullname        string                  `json:"fullname"`
+	ShortName       string                  `json:"shortname"`
+	Summary         string                  `json:"summary"`
+	Category        string                  `json:"coursecategory"`
+	Sections        []DownloadCourseSection `json:"sections"`
+	CourseImage     string                  `json:"courseimage"`
+	CourseImageType string                  `json:"courseimagetype"`
+}
+type DownloadCourseSection struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	SectionNumber int    `json:"section"`
 }
 
 func newCourseApi(client *MoodleClient) *CourseApi {
@@ -252,6 +288,9 @@ func (courseApi *CourseApi) DownloadAssignModule(module *CourseModule, basePath 
 	}
 
 	var courseAssignment = courseApi.getCourseModAssignment(module)
+	if courseAssignment == nil {
+		courseAssignment = &CourseModAssignment{-1, -1, "", "", nil}
+	}
 	var introMoodleFileNames []string
 	for _, file := range courseAssignment.IntroAttachment {
 		introMoodleFileNames = append(introMoodleFileNames, file.FileName)
@@ -271,7 +310,7 @@ func (courseApi *CourseApi) DownloadAssignModule(module *CourseModule, basePath 
 	introFilesPath := fmt.Sprintf("%s/introfiles", modulePath)
 	submissionFilesPath := fmt.Sprintf("%s/submissions", modulePath)
 
-	err = util.SaveStructToJSON(data, modulePath+"/assignment.json")
+	err = util.SaveStructToJSON(data, modulePath+"/data.json")
 	if err != nil {
 		return err
 	}
@@ -289,7 +328,130 @@ func (courseApi *CourseApi) DownloadAssignModule(module *CourseModule, basePath 
 		}
 	}
 	return nil
+}
 
+func (courseApi *CourseApi) DownloadResourceModule(module *CourseModule, basePath string) error {
+	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+	contentFilePath := fmt.Sprintf("%s/contents", modulePath)
+	var contentFileNames []string
+	for _, content := range module.Contents {
+		contentFileNames = append(contentFileNames, content.FileName)
+	}
+
+	var data DownloadResourceData
+	data.ID = module.ID
+	data.CMID = module.ComponentID
+	data.Name = module.Name
+	data.ContentFileNames = contentFileNames
+	data.ModName = module.ModName
+
+	err := util.SaveStructToJSON(data, modulePath+"/data.json")
+	if err != nil {
+		return err
+	}
+
+	for _, file := range module.Contents {
+		err = courseApi.client.downloadFile(file.FileURL, contentFilePath+"/"+file.FileName, file.FileSize)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
+func (courseApi *CourseApi) DownloadUrlModule(module *CourseModule, basePath string) error {
+	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+
+	var contentUrls []string
+	for _, content := range module.Contents {
+		contentUrls = append(contentUrls, content.FileURL)
+	}
+
+	var data DownloadURLData
+	data.ID = module.ID
+	data.CMID = module.ComponentID
+	data.Name = module.Name
+	data.ModName = module.ModName
+	data.ContentURLs = contentUrls
+
+	err := util.SaveStructToJSON(data, modulePath+"/data.json")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (courseApi *CourseApi) DownloadLabelModule(module *CourseModule, basePath string) error {
+	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+
+	var data DownloadLabelData
+	data.ID = module.ID
+	data.CMID = module.ComponentID
+	data.Name = module.Name
+	data.ModName = module.ModName
+	data.Description = module.Description
+	err := util.SaveStructToJSON(data, modulePath+"/data.json")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (courseApi *CourseApi) DownloadModule(module *CourseModule, basePath string) error {
+	switch module.ModName {
+	case "label":
+		return courseApi.DownloadLabelModule(module, basePath)
+	case "resource":
+		return courseApi.DownloadResourceModule(module, basePath)
+	case "url":
+		return courseApi.DownloadUrlModule(module, basePath)
+	case "assign":
+		return courseApi.DownloadAssignModule(module, basePath)
+	}
+	return nil
+}
+func (courseApi *CourseApi) DownloadCourse(course *Course, basePath string, progressChan chan<- int, view *tview.TextView) error {
+
+	var coursePath = fmt.Sprintf("%s/%s(%d)", basePath, course.ShortName, course.ID)
+	var sections []DownloadCourseSection
+	for _, section := range course.Sections {
+		var data DownloadCourseSection
+		data.ID = section.ID
+		data.SectionNumber = section.SectionNumber
+		data.Name = section.Name
+	}
+
+	var data DownloadCourse
+	data.ID = course.ID
+	data.ShortName = course.ShortName
+	data.Fullname = course.Fullname
+	data.Summary = course.Summary
+	data.Category = course.Category
+	data.Sections = sections
+	data.CourseImage = course.CourseImage
+	data.CourseImageType = course.CourseImageType
+
+	err := util.SaveStructToJSON(data, coursePath+"/data.json")
+	if err != nil {
+		return err
+	}
+
+	moduleCount := 0
+	var text string
+	for _, section := range course.Sections {
+		for _, module := range section.Modules {
+			err := courseApi.DownloadModule(&module, fmt.Sprintf("%s/%s", coursePath, section.Name))
+			text = "Downloaded: " + module.Name + "\n" + text
+			view.SetText(text)
+			progressChan <- moduleCount
+			if err != nil {
+				logrus.Info("Could not download module: ", err.Error())
+			}
+		}
+	}
+	close(progressChan)
+	return nil
 }
 
 func (courseApi *CourseApi) getCourseModAssignment(module *CourseModule) *CourseModAssignment {

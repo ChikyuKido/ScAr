@@ -135,7 +135,7 @@ func (mc *MoodleClient) downloadFile(url string, path string, filesize int64) er
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if filesize == fileInfo.Size() {
-			logrus.Debug("Skip file download ", path)
+			logrus.Info("Skip file download ", path)
 			return nil
 		}
 	}

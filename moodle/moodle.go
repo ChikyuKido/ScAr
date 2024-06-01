@@ -5,7 +5,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
-	"os"
 	"scar/util"
 	"strings"
 	"time"
@@ -28,10 +27,8 @@ func GetStartList(app *tview.Application, mainScreen tview.Primitive) *tview.Lis
 	list.SetBorder(true)
 	list.AddItem("Download", "", '1', func() {
 		if len(moodleClient.Token) == 0 {
-			moodleClient.ServiceUrl = os.Getenv("serviceUrl")
-			moodleClient.Login(os.Getenv("username"), os.Getenv("password"))
-			//	app.SetRoot(GetPasswordDialogModal(app, mainScreen), true)
-			//return
+			app.SetRoot(GetPasswordDialogModal(app, mainScreen), true)
+			return
 		}
 		app.SetRoot(GetDownloadView(app, mainScreen), true)
 	})
@@ -179,7 +176,7 @@ func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index i
 			}
 			modulesChan = make(chan int, len(GetAllModules(&course)))
 
-			err = moodleClient.CourseApi.DownloadCourse(&course, "/home/kido/archiver/moodle", modulesChan, logTextView)
+			err = moodleClient.CourseApi.DownloadCourse(&course, "archiver/moodle", modulesChan, logTextView)
 			if err != nil {
 				logrus.Error("Failed to download Course: ", err.Error())
 				continue

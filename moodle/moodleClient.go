@@ -123,6 +123,7 @@ func (mc *MoodleClient) makeRequest(function string, params map[string]string, u
 func (mc *MoodleClient) makeWebserviceRequest(function string, params map[string]string) ([]byte, error) {
 	return mc.makeRequest(function, params, "/webservice/rest/server.php")
 }
+
 func (mc *MoodleClient) makeModRequest(function string, params map[string]string) ([]byte, error) {
 	return mc.makeRequest(function, params, "/mod/assign/view.php")
 }

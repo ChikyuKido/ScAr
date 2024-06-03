@@ -237,7 +237,7 @@ func (courseApi *CourseApi) FetchCourseContents(course *Course) error {
 	return nil
 }
 
-func (courseApi *CourseApi) DownloadAssignModule(module *CourseModule, basePath string) error {
+func (courseApi *CourseApi) downloadAssignModule(module *CourseModule, basePath string) error {
 	if module.ModName != "assign" {
 		logrus.Fatal("Module is not a assignment")
 	}
@@ -330,7 +330,7 @@ func (courseApi *CourseApi) DownloadAssignModule(module *CourseModule, basePath 
 	return nil
 }
 
-func (courseApi *CourseApi) DownloadResourceModule(module *CourseModule, basePath string) error {
+func (courseApi *CourseApi) downloadResourceModule(module *CourseModule, basePath string) error {
 	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
 	contentFilePath := fmt.Sprintf("%s/contents", modulePath)
 	var contentFileNames []string
@@ -361,7 +361,7 @@ func (courseApi *CourseApi) DownloadResourceModule(module *CourseModule, basePat
 
 }
 
-func (courseApi *CourseApi) DownloadUrlModule(module *CourseModule, basePath string) error {
+func (courseApi *CourseApi) downloadUrlModule(module *CourseModule, basePath string) error {
 	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
 
 	var contentUrls []string
@@ -382,7 +382,7 @@ func (courseApi *CourseApi) DownloadUrlModule(module *CourseModule, basePath str
 	}
 	return nil
 }
-func (courseApi *CourseApi) DownloadLabelModule(module *CourseModule, basePath string) error {
+func (courseApi *CourseApi) downloadLabelModule(module *CourseModule, basePath string) error {
 	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
 
 	var data DownloadLabelData
@@ -401,13 +401,13 @@ func (courseApi *CourseApi) DownloadLabelModule(module *CourseModule, basePath s
 func (courseApi *CourseApi) DownloadModule(module *CourseModule, basePath string) error {
 	switch module.ModName {
 	case "label":
-		return courseApi.DownloadLabelModule(module, basePath)
+		return courseApi.downloadLabelModule(module, basePath)
 	case "resource":
-		return courseApi.DownloadResourceModule(module, basePath)
+		return courseApi.downloadResourceModule(module, basePath)
 	case "url":
-		return courseApi.DownloadUrlModule(module, basePath)
+		return courseApi.downloadUrlModule(module, basePath)
 	case "assign":
-		return courseApi.DownloadAssignModule(module, basePath)
+		return courseApi.downloadAssignModule(module, basePath)
 	}
 	return nil
 }

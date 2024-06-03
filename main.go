@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
 	"log"
@@ -12,7 +11,6 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
 	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -21,6 +19,8 @@ func main() {
 		_ = file.Close()
 	}(file)
 	logrus.SetOutput(file)
+
+	util.Config.Load()
 
 	app := tview.NewApplication()
 	list := tview.NewList()

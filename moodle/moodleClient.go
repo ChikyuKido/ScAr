@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -26,6 +27,8 @@ type MoodleClient struct {
 	Username     string
 	SkipSSL      bool
 	CourseApi    *CourseApi
+	Jar          *cookiejar.Jar
+	Client       *http.Client
 }
 
 func NewMoodleClient(skipSSL bool) *MoodleClient {
@@ -34,12 +37,20 @@ func NewMoodleClient(skipSSL bool) *MoodleClient {
 	}
 	client := &MoodleClient{SkipSSL: skipSSL}
 	client.CourseApi = newCourseApi(client)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		logrus.Fatal("Could not create Cookie jar", err)
+	}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipSSL},
+	}
+
+	client.Client = &http.Client{Transport: tr, Jar: jar}
+
 	return client
 }
-
 func (mc *MoodleClient) Login(username string, password string) error {
 	loginURL := fmt.Sprintf("%s/login/token.php", mc.ServiceUrl)
-
 	data := url.Values{}
 	data.Set("username", username)
 	data.Set("password", password)
@@ -49,12 +60,7 @@ func (mc *MoodleClient) Login(username string, password string) error {
 		return err
 	}
 	req.URL.RawQuery = data.Encode()
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: mc.SkipSSL},
-	}
-
-	client := &http.Client{Transport: tr}
-	resp, err := client.Do(req)
+	resp, err := mc.Client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -82,6 +88,9 @@ func (mc *MoodleClient) Login(username string, password string) error {
 	mc.Token = tokenResp.Token
 	mc.PrivateToken = tokenResp.PrivateToken
 	mc.Username = username
+	if err != nil {
+		logrus.Error("Failed to get Session. This is not a big problem but some endpoints will not work", err)
+	}
 	return nil
 }
 
@@ -101,12 +110,7 @@ func (mc *MoodleClient) makeRequest(function string, params map[string]string, u
 	}
 	req.URL.RawQuery = q.Encode()
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: mc.SkipSSL},
-	}
-
-	client := &http.Client{Transport: tr}
-	resp, err := client.Do(req)
+	resp, err := mc.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +137,7 @@ func (mc *MoodleClient) DownloadFile(url string, path string, filesize int64) er
 }
 
 func (mc *MoodleClient) downloadFile(url string, path string, filesize int64) error {
+
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if filesize == fileInfo.Size() {
@@ -149,12 +154,7 @@ func (mc *MoodleClient) downloadFile(url string, path string, filesize int64) er
 	q.Add("token", mc.Token)
 	req.URL.RawQuery = q.Encode()
 
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: mc.SkipSSL},
-	}
-	client := &http.Client{Transport: tr}
-
-	resp, err := client.Do(req)
+	resp, err := mc.Client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,6 @@ func (mc *MoodleClient) downloadFile(url string, path string, filesize int64) er
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return err
 	}
-
 	outFile, err := os.Create(path)
 	if err != nil {
 		return err

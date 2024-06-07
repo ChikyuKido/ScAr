@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/joho/godotenv"
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
 	"log"
@@ -10,7 +11,21 @@ import (
 	"scar/util"
 )
 
+type Todo struct {
+	Title string
+	Done  bool
+}
+
+type TodoPageData struct {
+	PageTitle string
+	Todos     []Todo
+}
+
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		return
+	}
 	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -19,8 +34,9 @@ func main() {
 		_ = file.Close()
 	}(file)
 	logrus.SetOutput(file)
-
 	util.Config.Load()
+
+	err = moodle.CreateMoodleWebsite()
 
 	app := tview.NewApplication()
 	list := tview.NewList()

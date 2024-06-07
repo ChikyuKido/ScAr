@@ -5,6 +5,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
+	"os"
+	"path/filepath"
 	"scar/util"
 	"strings"
 	"time"
@@ -26,10 +28,13 @@ func GetStartList(app *tview.Application, mainScreen tview.Primitive) *tview.Lis
 	list.SetTitle("Moodle")
 	list.SetBorder(true)
 	list.AddItem("Download", "", '1', func() {
-		if len(moodleClient.Token) == 0 {
+		/*if len(moodleClient.Token) == 0 {
 			app.SetRoot(GetPasswordDialogModal(app, mainScreen), true)
 			return
-		}
+		}*/
+		moodleClient.ServiceUrl = os.Getenv("serviceUrl")
+		moodleClient.Login(os.Getenv("username"), os.Getenv("password"))
+
 		app.SetRoot(GetDownloadView(app, mainScreen), true)
 	})
 	list.AddItem("Back", "", '2', func() {
@@ -107,14 +112,25 @@ func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) 
 		AddItem(usernameInput, 0, 1, false).
 		AddItem(passwordInput, 0, 1, false)
 	flex.SetBorder(true).SetTitle("Credentials")
-
+	var currentIndex = 0
 	flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyUp {
+		if event.Key() == tcell.KeyDown {
+			currentIndex++
+			if currentIndex > 2 {
+				currentIndex = 0
+			}
+		} else if event.Key() == tcell.KeyUp {
+			currentIndex--
+			if currentIndex < 0 {
+				currentIndex = 2
+			}
+		}
+		if currentIndex == 0 {
+			app.SetFocus(serviceUrl)
+		} else if currentIndex == 1 {
 			app.SetFocus(usernameInput)
-			return nil
-		} else if event.Key() == tcell.KeyDown {
+		} else if currentIndex == 2 {
 			app.SetFocus(passwordInput)
-			return nil
 		}
 		return event
 	})
@@ -169,14 +185,15 @@ func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index i
 	}()
 	go func() {
 		for i, course := range coursesToDownload {
-			err := moodleClient.CourseApi.FetchCourseContents(&course)
-			if err != nil {
-				logrus.Error("Failed to download Course: ", err.Error())
-				continue
-			}
+			/*	err := moodleClient.CourseApi.FetchCourseContents(&course)
+				if err != nil {
+					logrus.Error("Failed to download Course: ", err.Error())
+					continue
+				}*/
 			modulesChan = make(chan int, len(GetAllModules(&course)))
 
-			err = moodleClient.CourseApi.DownloadCourse(&course, "archiver/moodle", modulesChan, logTextView)
+			var basePath = util.Config.GetString("save_path")
+			err := moodleClient.CourseApi.DownloadCourse(&course, filepath.Join(basePath, "moodle"), modulesChan, logTextView)
 			if err != nil {
 				logrus.Error("Failed to download Course: ", err.Error())
 				continue

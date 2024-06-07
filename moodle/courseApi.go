@@ -6,6 +6,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
 	"log"
+	"os"
 	"scar/util"
 	"strconv"
 	"strings"
@@ -169,10 +170,19 @@ func (courseApi *CourseApi) GetCourses(fetchSectionsInCourse bool) ([]Course, er
 
 	logrus.Info("Found ", len(coursesResp.Courses), " Course")
 	for i := range coursesResp.Courses {
-		if strings.Contains(coursesResp.Courses[i].CourseImage, "data:image/svg+xml;base64,") {
-			coursesResp.Courses[i].CourseImageType = "BASE64"
-		} else {
-			coursesResp.Courses[i].CourseImageType = "URL"
+		if strings.Contains(coursesResp.Courses[i].CourseImage, "http") {
+			file, err := os.ReadFile("html/moodle/imgs/defaultImgs.svg")
+			if err != nil {
+				logrus.Error("Could not load default svg")
+			}
+			logrus.Infof("%s does not have a iamge load default", coursesResp.Courses[i].ShortName)
+			coursesResp.Courses[i].CourseImage = string(file)
+		}
+	}
+
+	for i := range coursesResp.Courses {
+		if coursesResp.Courses[i].ShortName == "E_2CHIF_2324" {
+			logrus.Info(coursesResp.Courses[i].CourseImage)
 		}
 	}
 
@@ -420,6 +430,7 @@ func (courseApi *CourseApi) DownloadCourse(course *Course, basePath string, prog
 		data.ID = section.ID
 		data.SectionNumber = section.SectionNumber
 		data.Name = section.Name
+		sections = append(sections, data)
 	}
 
 	var data DownloadCourse

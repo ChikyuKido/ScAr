@@ -22,9 +22,9 @@ func createDefaultConfig() map[string]interface{} {
 		logrus.Fatal("Could not generate default Config.", err)
 	}
 	if runtime.GOOS == "windows" {
-		data["save_path"] = filepath.Join(dir, "Documents")
+		data["save_path"] = filepath.Join(dir, "Documents", "ScAr")
 	} else {
-		data["save_path"] = dir
+		data["save_path"] = dir + "/ScAr"
 	}
 	return data
 }
@@ -57,6 +57,7 @@ func (sc *SimpleConfig) Load() {
 	if err != nil {
 		logrus.Error("Could not load config data. Maybe file does not exists. Loading a default config")
 		sc.data = createDefaultConfig()
+		sc.save()
 		return
 	}
 
@@ -75,6 +76,7 @@ func (sc *SimpleConfig) GetString(key string) string {
 			return str
 		}
 	}
+	logrus.Fatal("Could not load config key. Maybe wrong type or does not exists: ", key)
 	return ""
 }
 func (sc *SimpleConfig) GetStringWD(key string, defaultValue string) string {

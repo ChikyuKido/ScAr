@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courses</title>
+    <link rel="stylesheet" href="css/bulma.css">
+    <style>
+        .custom-card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .custom-card {
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        .custom-card:hover {
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body>
+<section class="section">
+    <div class="container">
+        <h1 class="title">Courses</h1>
+        <div class="columns is-multiline">
+            {{range .Courses}}
+            <div class="column is-one-third">
+                <a class="card custom-card" href="/{{.ShortName}}">
+                    <div class="card-image">
+                        <figure class="image is-4by3 custom-card-image">
+                            <img src="{{.CourseImageURL}}" alt="Course image">
+                        </figure>
+                    </div>
+                    <div class="card-content">
+                        <div class="media">
+                            <div class="media-content">
+                                <p class="title is-4">{{.FullName}}</p>
+                                <p class="subtitle is-6">{{.Category}}</p>
+                            </div>
+                        </div>
+                        <div class="content">
+                            {{.Summary}}
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+</body>
+</html>

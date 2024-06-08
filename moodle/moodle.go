@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
+	"scar/screen"
 	"scar/util"
 	"strings"
 	"time"
@@ -19,31 +20,29 @@ type MoodleCache struct {
 var moodleCache MoodleCache
 var moodleClient = NewMoodleClient(true)
 
-func GetMoodleScreen(app *tview.Application, mainScreen tview.Primitive) util.Screen {
-	return util.Screen{Name: "Moodle", Root: GetStartList(app, mainScreen)}
+func GetMoodleScreen() *screen.Screen {
+	return &screen.Screen{
+		Name:         "Moodle",
+		DownloadPage: getDownloadViewStart(),
+		CreateHtml:   createMoodleWebsite,
+		FolderName:   "moodle",
+		ImageName:    "Moodle.png"}
 }
-
-func GetStartList(app *tview.Application, mainScreen tview.Primitive) *tview.List {
-	var list = tview.NewList()
-	list.SetTitle("Moodle")
-	list.SetBorder(true)
-	list.AddItem("Download", "", '1', func() {
-		/*if len(moodleClient.Token) == 0 {
-			app.SetRoot(GetPasswordDialogModal(app, mainScreen), true)
-			return
-		}*/
+func getDownloadViewStart() tview.Primitive {
+	var box = tview.NewBox()
+	box.SetFocusFunc(func() {
+		//if moodleClient.Token == "" {
+		//	screen.App.SwitchScreen(GetPasswordDialogModal())
+		//} else {
+		//	screen.App.SwitchScreen(GetDownloadView())
+		//}
 		moodleClient.ServiceUrl = os.Getenv("serviceUrl")
 		moodleClient.Login(os.Getenv("username"), os.Getenv("password"))
-
-		app.SetRoot(GetDownloadView(app, mainScreen), true)
+		screen.App.SwitchScreen(GetDownloadView())
 	})
-	list.AddItem("Back", "", '2', func() {
-		app.SetRoot(mainScreen, true)
-	})
-	return list
+	return box
 }
-
-func GetDownloadView(app *tview.Application, mainScreen tview.Primitive) *tview.List {
+func GetDownloadView() *tview.List {
 	if len(moodleCache.course) == 0 {
 		courses, err := moodleClient.CourseApi.GetCourses(false)
 		moodleCache.course = courses
@@ -53,22 +52,22 @@ func GetDownloadView(app *tview.Application, mainScreen tview.Primitive) *tview.
 	}
 	var list = tview.NewList()
 	list.AddItem("0) All", "All Courses", 0, func() {
-		app.SetRoot(GetProgressView(app, mainScreen, -1), true)
+		screen.App.SwitchScreen(GetProgressView(-1))
 	})
 	for i, course := range moodleCache.course {
 		list.AddItem(fmt.Sprintf("%d) %s", i+1, course.ShortName),
 			fmt.Sprintf("%s (%d)", course.Fullname, course.ID), 0, func() {
-				app.SetRoot(GetProgressView(app, mainScreen, i), true)
+				screen.App.SwitchScreen(GetProgressView(i))
 			})
 	}
 	list.AddItem(fmt.Sprintf("%d) Back", len(moodleCache.course)+1), "", 0, func() {
-		app.SetRoot(GetStartList(app, mainScreen), true)
+		screen.App.SwitchToMainScreen()
 	})
 
 	return list
 }
 
-func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) tview.Primitive {
+func GetPasswordDialogModal() tview.Primitive {
 	serviceUrl := tview.NewInputField().
 		SetLabel("Moodle URL: ").
 		SetFieldWidth(0)
@@ -81,10 +80,10 @@ func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) 
 		SetFieldWidth(0).
 		SetMaskCharacter('*')
 	serviceUrl.SetDoneFunc(func(key tcell.Key) {
-		app.SetFocus(usernameInput)
+		screen.App.SetFocus(usernameInput)
 	})
 	usernameInput.SetDoneFunc(func(key tcell.Key) {
-		app.SetFocus(passwordInput)
+		screen.App.SetFocus(passwordInput)
 	})
 	passwordInput.SetDoneFunc(func(key tcell.Key) {
 		moodleClient.ServiceUrl = serviceUrl.GetText()
@@ -95,15 +94,15 @@ func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) 
 				AddButtons([]string{"Cancel", "Ok"}).
 				SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 					if buttonLabel == "Cancel" {
-						app.SetRoot(GetStartList(app, mainScreen), true)
+						screen.App.SwitchToMainScreen()
 					} else {
-						app.SetRoot(GetPasswordDialogModal(app, mainScreen), true)
+						screen.App.SwitchScreen(GetPasswordDialogModal())
 					}
 				})
-			app.SetRoot(modal, true)
+			screen.App.SwitchScreen(modal)
 			return
 		}
-		app.SetRoot(GetDownloadView(app, mainScreen), true)
+		screen.App.SwitchScreen(GetDownloadView())
 	})
 
 	flex := tview.NewFlex().
@@ -126,11 +125,11 @@ func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) 
 			}
 		}
 		if currentIndex == 0 {
-			app.SetFocus(serviceUrl)
+			screen.App.SetFocus(serviceUrl)
 		} else if currentIndex == 1 {
-			app.SetFocus(usernameInput)
+			screen.App.SetFocus(usernameInput)
 		} else if currentIndex == 2 {
-			app.SetFocus(passwordInput)
+			screen.App.SetFocus(passwordInput)
 		}
 		return event
 	})
@@ -147,7 +146,7 @@ func GetPasswordDialogModal(app *tview.Application, mainScreen tview.Primitive) 
 	return modal(flex, 40, 10)
 }
 
-func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index int) tview.Primitive {
+func GetProgressView(index int) tview.Primitive {
 	var coursesSize = 1
 	var coursesToDownload []Course
 	if index == -1 {
@@ -160,7 +159,7 @@ func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index i
 	modulesProgressBar := tview.NewTextView().SetScrollable(false)
 	logTextView := tview.NewTextView().
 		SetChangedFunc(func() {
-			app.Draw()
+			screen.App.App.Draw()
 		})
 	logTextView.SetDynamicColors(true).
 		SetRegions(true).
@@ -185,15 +184,15 @@ func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index i
 	}()
 	go func() {
 		for i, course := range coursesToDownload {
-			/*	err := moodleClient.CourseApi.FetchCourseContents(&course)
-				if err != nil {
-					logrus.Error("Failed to download Course: ", err.Error())
-					continue
-				}*/
+			err := moodleClient.CourseApi.FetchCourseContents(&course)
+			if err != nil {
+				logrus.Error("Failed to download Course: ", err.Error())
+				continue
+			}
 			modulesChan = make(chan int, len(GetAllModules(&course)))
 
 			var basePath = util.Config.GetString("save_path")
-			err := moodleClient.CourseApi.DownloadCourse(&course, filepath.Join(basePath, "moodle"), modulesChan, logTextView)
+			err = moodleClient.CourseApi.DownloadCourse(&course, filepath.Join(basePath, "moodle"), modulesChan, logTextView)
 			if err != nil {
 				logrus.Error("Failed to download Course: ", err.Error())
 				continue
@@ -201,7 +200,7 @@ func GetProgressView(app *tview.Application, mainScreen tview.Primitive, index i
 
 			coursesChan <- i + 1
 		}
-		app.SetRoot(GetDownloadView(app, mainScreen), true)
+		screen.App.SwitchScreen(GetDownloadView())
 		running = false
 	}()
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).

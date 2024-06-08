@@ -15,9 +15,28 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
+            height: 100%; /* Ensure the card takes full height */
         }
         .custom-card:hover {
             transform: scale(1.02);
+        }
+        .card-content {
+            flex-grow: 1; /* Make the card content grow to fill available space */
+        }
+        .media-content .title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .media-content .subtitle {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .content {
+            max-height: 3em; /* Adjust based on your needs */
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
 </head>
@@ -37,12 +56,9 @@
                     <div class="card-content">
                         <div class="media">
                             <div class="media-content">
-                                <p class="title is-4">{{.FullName}}</p>
+                                <p class="title is-4">{{.ShortName}}</p>
                                 <p class="subtitle is-6">{{.Category}}</p>
                             </div>
-                        </div>
-                        <div class="content">
-                            {{.Summary}}
                         </div>
                     </div>
                 </a>

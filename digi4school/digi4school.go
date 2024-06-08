@@ -2,11 +2,11 @@ package digi4school
 
 import (
 	"github.com/rivo/tview"
-	"scar/util"
+	"scar/screen"
 )
 
-func GetDigi4SchoolScreen(app *tview.Application, mainScreen tview.Primitive) util.Screen {
-	return util.Screen{Name: "Digi4School", Root: GetStartList(app, mainScreen)}
+func GetDigi4SchoolScreen(app *tview.Application, mainScreen tview.Primitive) screen.Screen {
+	return screen.Screen{Name: "Digi4School", Root: GetStartList(app, mainScreen)}
 }
 
 func GetStartList(app *tview.Application, mainScreen tview.Primitive) *tview.List {

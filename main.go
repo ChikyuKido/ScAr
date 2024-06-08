@@ -2,29 +2,18 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
-	"scar/digi4school"
 	"scar/moodle"
+	"scar/screen"
 	"scar/util"
 )
-
-type Todo struct {
-	Title string
-	Done  bool
-}
-
-type TodoPageData struct {
-	PageTitle string
-	Todos     []Todo
-}
 
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		return
+		logrus.Error("Error loading .env file")
 	}
 	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -36,20 +25,8 @@ func main() {
 	logrus.SetOutput(file)
 	util.Config.Load()
 
-	err = moodle.CreateMoodleWebsite()
+	screen.CreateApplication()
+	screen.AddScreen(moodle.GetMoodleScreen())
+	screen.RunApplication()
 
-	app := tview.NewApplication()
-	list := tview.NewList()
-	var screens = []util.Screen{moodle.GetMoodleScreen(app, list), digi4school.GetDigi4SchoolScreen(app, list)}
-	for i, screen := range screens {
-		list.AddItem(screen.Name, "", rune(i+1+'0'), func() {
-			app.SetRoot(screen.Root, true)
-		})
-	}
-	list.SetTitle("ScAr").SetBorder(true)
-
-	app.SetFocus(list)
-	if err := app.SetRoot(list, true).Run(); err != nil {
-		panic(err)
-	}
 }

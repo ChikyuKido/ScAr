@@ -25,7 +25,7 @@ type CourseCard struct {
 	CourseImageURL  template.URL
 }
 
-func CreateMoodleWebsite() error {
+func createMoodleWebsite() error {
 	var archiverPath = util.Config.GetString("save_path")
 	var moodlePath = filepath.Join(archiverPath, "moodle")
 	if _, err := os.Stat(moodlePath); errors.Is(err, os.ErrNotExist) {

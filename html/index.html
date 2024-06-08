@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Provider Page</title>
+    <link rel="stylesheet" href="css/bulma.css">
+    <style>
+        .card:hover {
+            transform: scale(1.03);
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+<section class="section">
+    <div class="container">
+        <h1 class="title">Providers</h1>
+        <div class="columns is-multiline">
+            {{range .Provider}}
+            <div class="column is-one-quarter">
+                <a href="{{.FolderName}}/index.html">
+                    <div class="card">
+                        <div class="card-image">
+                            <figure class="image is-4by3">
+                                <img src="imgs/{{.ImageName}}" alt="{{.Name}}">
+                            </figure>
+                        </div>
+                        <div class="card-content">
+                            <div class="media">
+                                <div class="media-content">
+                                    <p class="title is-4">{{.Name}}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</section>
+</body>
+</html>

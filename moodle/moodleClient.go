@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -27,7 +26,6 @@ type MoodleClient struct {
 	Username     string
 	SkipSSL      bool
 	CourseApi    *CourseApi
-	Jar          *cookiejar.Jar
 	Client       *http.Client
 }
 
@@ -37,15 +35,11 @@ func NewMoodleClient(skipSSL bool) *MoodleClient {
 	}
 	client := &MoodleClient{SkipSSL: skipSSL}
 	client.CourseApi = newCourseApi(client)
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		logrus.Fatal("Could not create Cookie jar", err)
-	}
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipSSL},
 	}
 
-	client.Client = &http.Client{Transport: tr, Jar: jar}
+	client.Client = &http.Client{Transport: tr}
 
 	return client
 }
@@ -88,9 +82,6 @@ func (mc *MoodleClient) Login(username string, password string) error {
 	mc.Token = tokenResp.Token
 	mc.PrivateToken = tokenResp.PrivateToken
 	mc.Username = username
-	if err != nil {
-		logrus.Error("Failed to get Session. This is not a big problem but some endpoints will not work", err)
-	}
 	return nil
 }
 

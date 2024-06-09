@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Courses</title>
-    <link rel="stylesheet" href="css/bulma.css">
+    <link rel="stylesheet" href="../css/bulma.css">
     <style>
         .custom-card-image {
             width: 100%;
@@ -15,13 +15,13 @@
             display: flex;
             flex-direction: column;
             transition: transform 0.3s ease;
-            height: 100%; /* Ensure the card takes full height */
+            height: 100%;
         }
         .custom-card:hover {
             transform: scale(1.02);
         }
         .card-content {
-            flex-grow: 1; /* Make the card content grow to fill available space */
+            flex-grow: 1;
         }
         .media-content .title {
             white-space: nowrap;
@@ -30,11 +30,6 @@
         }
         .media-content .subtitle {
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .content {
-            max-height: 3em; /* Adjust based on your needs */
             overflow: hidden;
             text-overflow: ellipsis;
         }

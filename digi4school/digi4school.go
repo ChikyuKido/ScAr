@@ -5,19 +5,19 @@ import (
 	"scar/screen"
 )
 
-func GetDigi4SchoolScreen(app *tview.Application, mainScreen tview.Primitive) screen.Screen {
-	return screen.Screen{Name: "Digi4School", Root: GetStartList(app, mainScreen)}
+func GetD4SScreen() *screen.Screen {
+	return &screen.Screen{Name: "Digi4School",
+		DownloadPage: GetStartList(),
+		CreateHtml: func() error {
+			return nil
+		},
+		FolderName: "d4s",
+		ImageName:  "d4s.png"}
 }
 
-func GetStartList(app *tview.Application, mainScreen tview.Primitive) *tview.List {
+func GetStartList() *tview.List {
 	var list = tview.NewList()
-	list.SetTitle("Moodle")
+	list.SetTitle("ScAr - Digi4School")
 	list.SetBorder(true)
-	list.AddItem("Download", "", '1', func() {
-
-	})
-	list.AddItem("Back", "", '2', func() {
-		app.SetRoot(mainScreen, true)
-	})
 	return list
 }

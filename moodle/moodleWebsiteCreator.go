@@ -5,13 +5,12 @@ import (
 	"errors"
 	"github.com/sirupsen/logrus"
 	"html/template"
-	"log"
 	"os"
 	"path/filepath"
 	"scar/util"
 )
 
-type CoursesPage struct {
+type CoursesOverviewPage struct {
 	Courses []CourseCard
 }
 
@@ -25,6 +24,9 @@ type CourseCard struct {
 	CourseImageURL  template.URL
 }
 
+type CoursePage struct {
+}
+
 func createMoodleWebsite() error {
 	var archiverPath = util.Config.GetString("save_path")
 	var moodlePath = filepath.Join(archiverPath, "moodle")
@@ -32,11 +34,42 @@ func createMoodleWebsite() error {
 		return err
 	}
 
-	entries, err := os.ReadDir(moodlePath)
+	coursesOverviewPage, err := getCoursePage(moodlePath)
+	if err != nil {
+		logrus.Error("Could not retrieve Courses from moodle folder")
+		return err
+	}
+
+	tmpl, err := template.ParseFiles("html/templates/moodle-courses-page.html")
+	if err != nil {
+		logrus.Fatal("Error loading template: ", err)
+		return err
+	}
+
+	var outputPath = filepath.Join(archiverPath, "html", "moodle", "index.html")
+	err = os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
 	if err != nil {
 		return err
 	}
-	var coursesPageData CoursesPage
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
+
+	err = tmpl.Execute(outputFile, coursesOverviewPage)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getCoursePage(moodlePath string) (CoursesOverviewPage, error) {
+	entries, err := os.ReadDir(moodlePath)
+	if err != nil {
+		return CoursesOverviewPage{}, err
+	}
+	var coursesPageData CoursesOverviewPage
 	coursesPageData.Courses = []CourseCard{}
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -57,40 +90,5 @@ func createMoodleWebsite() error {
 		}
 	}
 
-	tmpl, err := template.ParseFiles("html/templates/moodle-courses-page.html")
-	if err != nil {
-		log.Fatal("Error loading template: ", err)
-	}
-
-	var outputPath = filepath.Join(archiverPath, "html", "moodle", "index.html")
-	err = os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	outputFile, err := os.Create(outputPath)
-	if err != nil {
-		return err
-	}
-	defer outputFile.Close()
-
-	err = tmpl.Execute(outputFile, coursesPageData)
-	if err != nil {
-		return err
-	}
-
-	cssBytes, err := os.ReadFile("html/css/bulma.css")
-	if err != nil {
-		logrus.Error("Could not get bulma css")
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(archiverPath, "html", "moodle", "css"), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(filepath.Join(archiverPath, "html", "moodle", "css", "bulma.css"), cssBytes, os.ModePerm)
-	if err != nil {
-		logrus.Error("Could not write bulma css")
-		return err
-	}
-	return nil
+	return coursesPageData, nil
 }

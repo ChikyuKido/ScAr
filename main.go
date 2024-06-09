@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
+	"scar/digi4school"
 	"scar/moodle"
 	"scar/screen"
 	"scar/util"
@@ -27,6 +28,7 @@ func main() {
 
 	screen.CreateApplication()
 	screen.AddScreen(moodle.GetMoodleScreen())
+	screen.AddScreen(digi4school.GetD4SScreen())
 	screen.RunApplication()
 
 }

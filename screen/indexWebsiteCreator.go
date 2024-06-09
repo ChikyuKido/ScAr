@@ -3,6 +3,7 @@ package screen
 import (
 	"github.com/sirupsen/logrus"
 	"html/template"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -66,5 +67,55 @@ func createIndexHtml() error {
 		logrus.Error("Could not write bulma css")
 		return err
 	}
+
+	moveImgFolder("html/imgs", filepath.Join(archiverPath, "html", "imgs"))
+	return nil
+}
+
+func moveImgFolder(srcDir, dstDir string) {
+	err := os.MkdirAll(dstDir, os.ModePerm)
+	if err != nil {
+		logrus.Errorf("failed to create destination directory: %v", err)
+	}
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		logrus.Errorf("failed to read source directory: %v", err)
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(srcDir, entry.Name())
+		dstPath := filepath.Join(dstDir, entry.Name())
+
+		if !entry.IsDir() {
+			err = CopyFile(srcPath, dstPath)
+			if err != nil {
+				logrus.Warnf("failed to move %s to %s: %v", srcPath, dstPath, err)
+			}
+		}
+	}
+}
+
+func CopyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return err
+	}
+
+	err = dstFile.Sync()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

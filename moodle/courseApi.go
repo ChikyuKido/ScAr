@@ -178,12 +178,7 @@ func (courseApi *CourseApi) GetCourses(fetchSectionsInCourse bool) ([]Course, er
 			logrus.Infof("%s does not have a iamge load default", coursesResp.Courses[i].ShortName)
 			coursesResp.Courses[i].CourseImage = string(file)
 		}
-	}
 
-	for i := range coursesResp.Courses {
-		if coursesResp.Courses[i].ShortName == "E_2CHIF_2324" {
-			logrus.Info(coursesResp.Courses[i].CourseImage)
-		}
 	}
 
 	if fetchSectionsInCourse {
@@ -244,6 +239,17 @@ func (courseApi *CourseApi) FetchCourseContents(course *Course) error {
 		return err
 	}
 	course.Sections = sections
+	for i := range sections {
+		if strings.Contains(sections[i].Name, "/") {
+			sections[i].Name = strings.ReplaceAll(sections[i].Name, "/", "-")
+		}
+		for j := range sections[i].Modules {
+			module := &sections[i].Modules[j]
+			if strings.Contains(module.Name, "/") {
+				module.Name = strings.ReplaceAll(module.Name, "/", "-")
+			}
+		}
+	}
 	return nil
 }
 
@@ -452,6 +458,9 @@ func (courseApi *CourseApi) DownloadCourse(course *Course, basePath string, prog
 	var text string
 	for _, section := range course.Sections {
 		for _, module := range section.Modules {
+			if strings.Contains(coursePath, "7706") {
+				logrus.Info(section.Name)
+			}
 			err := courseApi.DownloadModule(&module, fmt.Sprintf("%s/%s", coursePath, section.Name))
 			text = "Downloaded: " + module.Name + "\n" + text
 			view.SetText(text)

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .FullName }}</title>
+    <link rel="stylesheet" href="../../css/bulma.css">
+</head>
+<body>
+<nav class="navbar is-dark" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="../index.html">
+           <span class="icon-text">
+                <span class="icon">
+                    &#8592;
+                </span>
+                <span>Back</span>
+           </span>
+        </a>
+    </div>
+</nav>
+
+<section class="section">
+    <div class="container">
+        <div class="columns">
+            <div class="column is-one-third">
+                <figure class="image is-4by3">
+                    <img src="{{ .CourseImageURL }}" alt="Course Image">
+                </figure>
+            </div>
+            <div class="column">
+                <div class="content">
+                    <h1 class="title">{{ .FullName }}</h1>
+                    <h2 class="subtitle">{{ .ShortName }}</h2>
+                    <h4 class="title is-5">Category: {{ .Category }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <h3 class="title is-4">Sections</h3>
+        <div class="content">
+            {{ range .Sections }}
+            <div class="box">
+                <h4 class="title is-5">{{ .Name }}</h4>
+                <ul>
+                    {{ range .CourseModules }}
+                    <li>{{ .Name }}</li>
+                    {{ end }}
+                </ul>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+</section>
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+</body>
+</html>

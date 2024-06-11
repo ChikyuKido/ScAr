@@ -54,6 +54,7 @@ func (mc *MoodleClient) Login(username string, password string) error {
 		return err
 	}
 	req.URL.RawQuery = data.Encode()
+
 	resp, err := mc.Client.Do(req)
 	if err != nil {
 		return err

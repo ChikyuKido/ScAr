@@ -79,6 +79,7 @@ func (sm *ScreenManager) BuildMainScreen() {
 }
 
 func (sm *ScreenManager) SwitchScreen(root tview.Primitive) {
+
 	sm.App.SetRoot(root, true)
 }
 

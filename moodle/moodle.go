@@ -37,7 +37,10 @@ func getDownloadViewStart() tview.Primitive {
 		//	screen.App.SwitchScreen(GetDownloadView())
 		//}
 		moodleClient.ServiceUrl = os.Getenv("serviceUrl")
-		moodleClient.Login(os.Getenv("username"), os.Getenv("password"))
+		err := moodleClient.Login(os.Getenv("username"), os.Getenv("password"))
+		if err != nil {
+			logrus.Error(err)
+		}
 		screen.App.SwitchScreen(GetDownloadView())
 	})
 	return box

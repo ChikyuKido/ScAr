@@ -36,13 +36,25 @@
     </style>
 </head>
 <body>
+<nav class="navbar is-dark" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="../index.html">
+           <span class="icon-text">
+                <span class="icon">
+                    &#8592;
+                </span>
+                <span>Back</span>
+           </span>
+        </a>
+    </div>
+</nav>
 <section class="section">
     <div class="container">
         <h1 class="title">Courses</h1>
         <div class="columns is-multiline">
             {{range .Courses}}
             <div class="column is-one-third">
-                <a class="card custom-card" href="/{{.ShortName}}">
+                <a class="card custom-card" href="{{.ShortName}}/index.html">
                     <div class="card-image">
                         <figure class="image is-4by3 custom-card-image">
                             <img src="{{.CourseImageURL}}" alt="Course image">

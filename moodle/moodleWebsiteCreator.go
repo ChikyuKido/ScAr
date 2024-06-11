@@ -5,22 +5,31 @@ import (
 	"errors"
 	"github.com/sirupsen/logrus"
 	"html/template"
+	"log"
 	"os"
 	"path/filepath"
 	"scar/util"
 )
 
-type CoursesOverviewPage struct {
-	Courses []CourseCard
+type coursesOverviewPage struct {
+	Courses []courseData
+}
+type courseModule struct {
+	Name string
+}
+type courseSection struct {
+	Name          string
+	CourseModules []courseModule
 }
 
-type CourseCard struct {
+type courseData struct {
 	FullName        string        `json:"fullname"`
 	ShortName       string        `json:"shortname"`
 	Summary         template.HTML `json:"summary"`
 	Category        string        `json:"coursecategory"`
 	CourseImage     string        `json:"courseimage"`
 	CourseImageType string        `json:"courseimagetype"`
+	Sections        []courseSection
 	CourseImageURL  template.URL
 }
 
@@ -34,19 +43,35 @@ func createMoodleWebsite() error {
 		return err
 	}
 
-	coursesOverviewPage, err := getCoursePage(moodlePath)
+	page, err := getCoursePage(moodlePath)
 	if err != nil {
 		logrus.Error("Could not retrieve Courses from moodle folder")
 		return err
 	}
+	err = createOverviewPage(&page, archiverPath)
+	if err != nil {
+		logrus.Error("Could not create overview page")
+		return err
+	}
 
+	for _, course := range page.Courses {
+		err := createCoursePage(course, archiverPath)
+		if err != nil {
+			logrus.Error("Could not create Course page")
+			continue
+		}
+	}
+
+	return nil
+}
+
+func createOverviewPage(page *coursesOverviewPage, archiverPath string) error {
+	var outputPath = filepath.Join(archiverPath, "html", "moodle", "index.html")
 	tmpl, err := template.ParseFiles("html/templates/moodle-courses-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err
 	}
-
-	var outputPath = filepath.Join(archiverPath, "html", "moodle", "index.html")
 	err = os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
 	if err != nil {
 		return err
@@ -57,20 +82,43 @@ func createMoodleWebsite() error {
 	}
 	defer outputFile.Close()
 
-	err = tmpl.Execute(outputFile, coursesOverviewPage)
+	err = tmpl.Execute(outputFile, page)
 	if err != nil {
 		return err
 	}
 	return nil
 }
+func createCoursePage(course courseData, archiverPath string) error {
+	var outputPath = filepath.Join(archiverPath, "html", "moodle", course.ShortName, "index.html")
+	tmpl, err := template.ParseFiles("html/templates/course/moodle-course-page.html")
+	if err != nil {
+		logrus.Fatal("Error loading template: ", err)
+		return err
+	}
+	err = os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
 
-func getCoursePage(moodlePath string) (CoursesOverviewPage, error) {
+	err = tmpl.Execute(outputFile, course)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+func getCoursePage(moodlePath string) (coursesOverviewPage, error) {
 	entries, err := os.ReadDir(moodlePath)
 	if err != nil {
-		return CoursesOverviewPage{}, err
+		return coursesOverviewPage{}, err
 	}
-	var coursesPageData CoursesOverviewPage
-	coursesPageData.Courses = []CourseCard{}
+	var coursesPageData coursesOverviewPage
+	coursesPageData.Courses = []courseData{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			file := filepath.Join(moodlePath, entry.Name(), "data.json")
@@ -79,16 +127,73 @@ func getCoursePage(moodlePath string) (CoursesOverviewPage, error) {
 				logrus.Info("Could not get Course data for Course ", entry.Name(), ". Skipping it")
 				continue
 			}
-			var courseData CourseCard
+			var courseData courseData
 			err = json.Unmarshal(data, &courseData)
 			if err != nil {
 				logrus.Info("Could not parse Course data for Course ", entry.Name(), ". Skipping it")
 				continue
 			}
 			courseData.CourseImageURL = template.URL(courseData.CourseImage)
+			sections, err := getSections(filepath.Join(moodlePath, entry.Name()))
+			if err != nil {
+				logrus.Info("Could not retrieve sections. ", err)
+			}
+			courseData.Sections = sections
 			coursesPageData.Courses = append(coursesPageData.Courses, courseData)
 		}
 	}
 
 	return coursesPageData, nil
+}
+
+func getSections(coursePath string) ([]courseSection, error) {
+	entries, err := os.ReadDir(coursePath)
+	if err != nil {
+		return []courseSection{}, err
+	}
+
+	var sections []courseSection
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		var sec, err = getSection(filepath.Join(coursePath, entry.Name()))
+		if err != nil {
+			logrus.Info("Could not get section ", entry.Name(), ". Skipping it")
+			continue
+		}
+		sections = append(sections, sec)
+	}
+	return sections, nil
+}
+func getSection(sectionPath string) (courseSection, error) {
+	entries, err := os.ReadDir(sectionPath)
+	if err != nil {
+		return courseSection{}, err
+	}
+
+	var section courseSection
+	section.CourseModules = []courseModule{}
+	_, section.Name = filepath.Split(sectionPath)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		var data, err = os.ReadFile(filepath.Join(sectionPath, entry.Name(), "data.json"))
+		if err != nil {
+			logrus.Info("Could not get Course data for Course ", entry.Name(), ". Because", err)
+			continue
+		}
+		var result map[string]interface{}
+		err = json.Unmarshal(data, &result)
+		if err != nil {
+			log.Fatalf("Error unmarshalling JSON: %v", err)
+		}
+
+		var mod courseModule
+		mod.Name = result["name"].(string)
+		section.CourseModules = append(section.CourseModules, mod)
+	}
+
+	return section, nil
 }

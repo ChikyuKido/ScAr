@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment Details</title>
+    <link rel="stylesheet" href="/static/bulma.min.css">
+</head>
+<body>
+<section class="section">
+    <div class="container">
+        <h1 class="title">{{.Name}}</h1>
+        <p class="subtitle">{{.Intro}}</p>
+        <div class="content">
+            <p><strong>Module Name:</strong> {{.Modname}}</p>
+            <p><strong>Submission Statement:</strong> {{.SubmissionStatement}}</p>
+            <h2>Intro Attachments</h2>
+            <ul>
+                {{range .IntroAttachments}}
+                <li>{{.}}</li>
+                {{end}}
+            </ul>
+            <h2>Submission Attachments</h2>
+            <ul>
+                {{range .SubmissionAttachments}}
+                <li>{{.}}</li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+</section>
+</body>
+</html>

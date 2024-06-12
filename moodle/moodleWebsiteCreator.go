@@ -3,6 +3,7 @@ package moodle
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"html/template"
 	"log"
@@ -15,7 +16,9 @@ type coursesOverviewPage struct {
 	Courses []courseData
 }
 type courseModule struct {
-	Name string
+	Name    string
+	ModName string
+	Data    map[string]interface{}
 }
 type courseSection struct {
 	Name          string
@@ -33,7 +36,15 @@ type courseData struct {
 	CourseImageURL  template.URL
 }
 
-type CoursePage struct {
+type assignmentMod struct {
+	ID                    int           `json:"id"`
+	CMID                  int           `json:"cmid"`
+	Name                  string        `json:"name"`
+	Intro                 template.HTML `json:"intro"`
+	Modname               string        `json:"modname"`
+	SubmissionStatement   template.HTML `json:"submissionstatement"`
+	IntroAttachments      []string      `json:"introattachmentsnames"`
+	SubmissionAttachments []string      `json:"submissionattachmentsnames"`
 }
 
 func createMoodleWebsite() error {
@@ -109,8 +120,56 @@ func createCoursePage(course courseData, archiverPath string) error {
 	if err != nil {
 		return err
 	}
-	return nil
 
+	for _, section := range course.Sections {
+		for _, module := range section.CourseModules {
+			err := createModulePage(module, filepath.Dir(outputPath))
+			if err != nil {
+				logrus.Error("Could not create Module page:", err)
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+func createModulePage(mod courseModule, coursePath string) error {
+	var outputPath = filepath.Join(coursePath, mod.Name+".html")
+	assignTemp, err := template.ParseFiles("html/templates/course/mod/mod-assignment-page.html")
+	if err != nil {
+		logrus.Fatal("Error loading template: ", err)
+		return err
+	}
+	//TODO: other module types
+
+	err = os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
+
+	if mod.ModName == "assign" {
+
+		jsonData, err := json.Marshal(mod.Data)
+		if err != nil {
+			return err
+		}
+		var assignment assignmentMod
+		if err := json.Unmarshal(jsonData, &assignment); err != nil {
+			return err
+		}
+		err = assignTemp.Execute(outputFile, assignment)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("Mod type is not supported: " + mod.ModName)
+	}
+	return nil
 }
 func getCoursePage(moodlePath string) (coursesOverviewPage, error) {
 	entries, err := os.ReadDir(moodlePath)
@@ -192,6 +251,8 @@ func getSection(sectionPath string) (courseSection, error) {
 
 		var mod courseModule
 		mod.Name = result["name"].(string)
+		mod.ModName = result["modname"].(string)
+		mod.Data = result
 		section.CourseModules = append(section.CourseModules, mod)
 	}
 

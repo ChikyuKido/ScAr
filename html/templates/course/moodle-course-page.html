@@ -48,7 +48,9 @@
                 <h4 class="title is-5">{{ .Name }}</h4>
                 <ul>
                     {{ range .CourseModules }}
-                    <li>{{ .Name }}</li>
+                    <li>
+                        <a href="{{ .Name }}.html">{{ .Name }}</a>
+                    </li>
                     {{ end }}
                 </ul>
             </div>
@@ -56,7 +58,5 @@
         </div>
     </div>
 </section>
-<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
-
 </body>
 </html>

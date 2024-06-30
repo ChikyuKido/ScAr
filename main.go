@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
@@ -12,10 +11,6 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		logrus.Error("Error loading .env file")
-	}
 	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)

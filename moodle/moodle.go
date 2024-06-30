@@ -5,7 +5,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
-	"os"
 	"path/filepath"
 	"scar/screen"
 	"scar/util"
@@ -31,17 +30,11 @@ func GetMoodleScreen() *screen.Screen {
 func getDownloadViewStart() tview.Primitive {
 	var box = tview.NewBox()
 	box.SetFocusFunc(func() {
-		//if moodleClient.Token == "" {
-		//	screen.App.SwitchScreen(GetPasswordDialogModal())
-		//} else {
-		//	screen.App.SwitchScreen(GetDownloadView())
-		//}
-		moodleClient.ServiceUrl = os.Getenv("serviceUrl")
-		err := moodleClient.Login(os.Getenv("username"), os.Getenv("password"))
-		if err != nil {
-			logrus.Error(err)
+		if moodleClient.Token == "" {
+			screen.App.SwitchScreen(GetPasswordDialogModal())
+		} else {
+			screen.App.SwitchScreen(GetDownloadView())
 		}
-		screen.App.SwitchScreen(GetDownloadView())
 	})
 	return box
 }

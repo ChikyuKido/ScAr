@@ -1,12 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assignment Details</title>
-    <link rel="stylesheet" href="/static/bulma.min.css">
+    <link rel="stylesheet" href="../../css/bulma.css">
 </head>
 <body>
+<nav class="navbar is-dark" role="navigation" aria-label="main navigation">
+    <div class="navbar-brand">
+        <a class="navbar-item" href="javascript:history.back()">
+           <span class="icon-text">
+                <span class="icon">
+                    &#8592;
+                </span>
+                <span>Back</span>
+           </span>
+        </a>
+    </div>
+</nav>
 <section class="section">
     <div class="container">
         <h1 class="title">{{.Name}}</h1>
@@ -16,14 +28,18 @@
             <p><strong>Submission Statement:</strong> {{.SubmissionStatement}}</p>
             <h2>Intro Attachments</h2>
             <ul>
-                {{range .IntroAttachments}}
-                <li>{{.}}</li>
+                {{range $index, $attachment := .IntroAttachments}}
+                <li>
+                    <a href="../{{index $.IntroAttachmentsPaths $index}}" target="_blank">{{.}}</a>
+                </li>
                 {{end}}
             </ul>
             <h2>Submission Attachments</h2>
             <ul>
-                {{range .SubmissionAttachments}}
-                <li>{{.}}</li>
+                {{range $index, $attachment := .SubmissionAttachments}}
+                <li>
+                    <a href="../{{index $.SubmissionAttachmentsPaths $index}}" target="_blank">{{.}}</a>
+                </li>
                 {{end}}
             </ul>
         </div>

@@ -175,10 +175,9 @@ func (courseApi *CourseApi) GetCourses(fetchSectionsInCourse bool) ([]Course, er
 			if err != nil {
 				logrus.Error("Could not load default svg")
 			}
-			logrus.Infof("%s does not have a iamge load default", coursesResp.Courses[i].ShortName)
+			logrus.Infof("%s does not have a image load default", coursesResp.Courses[i].ShortName)
 			coursesResp.Courses[i].CourseImage = string(file)
 		}
-
 	}
 
 	if fetchSectionsInCourse {
@@ -322,7 +321,7 @@ func (courseApi *CourseApi) downloadAssignModule(module *CourseModule, basePath 
 	data.SubmissionStatement = courseAssignment.SubmissionStatement
 	data.IntroAttachmentsNames = introMoodleFileNames
 
-	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+	modulePath := fmt.Sprintf("%s/%d", basePath, module.ID)
 	introFilesPath := fmt.Sprintf("%s/introfiles", modulePath)
 	submissionFilesPath := fmt.Sprintf("%s/submissions", modulePath)
 
@@ -347,7 +346,7 @@ func (courseApi *CourseApi) downloadAssignModule(module *CourseModule, basePath 
 }
 
 func (courseApi *CourseApi) downloadResourceModule(module *CourseModule, basePath string) error {
-	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+	modulePath := fmt.Sprintf("%s/%d", basePath, module.ID)
 	contentFilePath := fmt.Sprintf("%s/contents", modulePath)
 	var contentFileNames []string
 	for _, content := range module.Contents {
@@ -378,7 +377,7 @@ func (courseApi *CourseApi) downloadResourceModule(module *CourseModule, basePat
 }
 
 func (courseApi *CourseApi) downloadUrlModule(module *CourseModule, basePath string) error {
-	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+	modulePath := fmt.Sprintf("%s/%d", basePath, module.ID)
 
 	var contentUrls []string
 	for _, content := range module.Contents {
@@ -399,7 +398,7 @@ func (courseApi *CourseApi) downloadUrlModule(module *CourseModule, basePath str
 	return nil
 }
 func (courseApi *CourseApi) downloadLabelModule(module *CourseModule, basePath string) error {
-	modulePath := fmt.Sprintf("%s/%s(%d)", basePath, module.Name, module.ID)
+	modulePath := fmt.Sprintf("%s/%d", basePath, module.ID)
 
 	var data DownloadLabelData
 	data.ID = module.ID
@@ -429,7 +428,7 @@ func (courseApi *CourseApi) DownloadModule(module *CourseModule, basePath string
 }
 func (courseApi *CourseApi) DownloadCourse(course *Course, basePath string, progressChan chan<- int, view *tview.TextView) error {
 
-	var coursePath = fmt.Sprintf("%s/%s(%d)", basePath, course.ShortName, course.ID)
+	var coursePath = fmt.Sprintf("%s/%d", basePath, course.ID)
 	var sections []DownloadCourseSection
 	for _, section := range course.Sections {
 		var data DownloadCourseSection
@@ -461,7 +460,7 @@ func (courseApi *CourseApi) DownloadCourse(course *Course, basePath string, prog
 			if strings.Contains(coursePath, "7706") {
 				logrus.Info(section.Name)
 			}
-			err := courseApi.DownloadModule(&module, fmt.Sprintf("%s/%s", coursePath, section.Name))
+			err := courseApi.DownloadModule(&module, fmt.Sprintf("%s/%d", coursePath, section.ID))
 			text = "Downloaded: " + module.Name + "\n" + text
 			view.SetText(text)
 			progressChan <- moduleCount

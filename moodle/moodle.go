@@ -70,11 +70,13 @@ func GetPasswordDialogModal() tview.Primitive {
 	usernameInput := tview.NewInputField().
 		SetLabel("Username: ").
 		SetFieldWidth(0)
-
 	passwordInput := tview.NewInputField().
 		SetLabel("Password: ").
 		SetFieldWidth(0).
 		SetMaskCharacter('*')
+	helpText := tview.NewTextView().
+		SetText("Press enter to login. This can take some time.").
+		SetTextAlign(tview.AlignCenter)
 	serviceUrl.SetDoneFunc(func(key tcell.Key) {
 		screen.App.SetFocus(usernameInput)
 	})
@@ -105,7 +107,8 @@ func GetPasswordDialogModal() tview.Primitive {
 		SetDirection(tview.FlexRow).
 		AddItem(serviceUrl, 0, 1, true).
 		AddItem(usernameInput, 0, 1, false).
-		AddItem(passwordInput, 0, 1, false)
+		AddItem(passwordInput, 0, 1, false).
+		AddItem(helpText, 0, 1, false)
 	flex.SetBorder(true).SetTitle("Credentials")
 	var currentIndex = 0
 	flex.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -138,7 +141,6 @@ func GetPasswordDialogModal() tview.Primitive {
 				AddItem(nil, 0, 1, false), width, 1, true).
 			AddItem(nil, 0, 1, false)
 	}
-
 	return modal(flex, 40, 10)
 }
 

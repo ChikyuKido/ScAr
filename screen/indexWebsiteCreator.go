@@ -1,5 +1,8 @@
 package screen
 
+/**
+This class creates the index site for the html. It just iterates to all added screens and then creates the index html. It also provides the css and imgs to the correct folder
+*/
 import (
 	"github.com/sirupsen/logrus"
 	"html/template"

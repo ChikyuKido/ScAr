@@ -1,5 +1,8 @@
 package screen
 
+/**
+This class simply contains all the runtime screens and creates the ui for it.
+*/
 import (
 	"github.com/rivo/tview"
 	"github.com/sirupsen/logrus"
@@ -79,7 +82,6 @@ func (sm *ScreenManager) BuildMainScreen() {
 }
 
 func (sm *ScreenManager) SwitchScreen(root tview.Primitive) {
-
 	sm.App.SetRoot(root, true)
 }
 

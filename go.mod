@@ -3,9 +3,8 @@ module scar
 go 1.22
 
 require (
-	github.com/joho/godotenv v1.5.1
-	github.com/sirupsen/logrus v1.9.3
 	github.com/rivo/tview v0.0.0-20240524063012-037df494fb76
+	github.com/sirupsen/logrus v1.9.3
 )
 
 require (

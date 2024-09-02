@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
@@ -11,6 +12,16 @@ import (
 )
 
 func main() {
+
+	client := digi4school.NewDigi4SClient(email, password)
+
+	if err := client.Login(); err == nil {
+		client.GetBookCookie("23s5agvhgkxf")
+		client.Logout()
+	} else {
+		fmt.Println("Login failed")
+	}
+	return
 	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)

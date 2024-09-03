@@ -13,7 +13,7 @@ import (
 
 func main() {
 
-	client := digi4school.NewDigi4SClient(email, password)
+	client := digi4school.NewDigi4SClient("thomas.14.dietz@posteo.de", "gz^$!Mp!og$gh66$")
 
 	if err := client.Login(); err == nil {
 		client.GetBookCookie("23s5agvhgkxf")

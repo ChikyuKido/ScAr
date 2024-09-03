@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"strings"
 )
@@ -26,11 +24,18 @@ type BookCookies struct {
 }
 
 func NewDigi4SClient(username, password string) *Digi4SchoolClient {
+	transport := http.DefaultTransport
 	jar, _ := cookiejar.New(nil)
 	return &Digi4SchoolClient{
 		Username: username,
 		Password: password,
-		Client:   &http.Client{Jar: jar},
+		Client: &http.Client{
+			Jar: jar,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+			Transport: transport,
+		},
 	}
 }
 
@@ -211,53 +216,20 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 	req.Header.Set("Sec-GPC", "1")
 	req.Header.Set("Cookie", fmt.Sprintf("digi4s=%s", digi4s))
 
-	//http := &http.Client{}
-	//resp, err := http.Do(req)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//resp, err := c.Client.Do(req)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//
-	curlCmd := exec.Command("curl", "-X", "POST", "https://a.digi4school.at/lti",
-		"-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; rv:129.0) Gecko/20100101 Firefox/129.0",
-		"-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8",
-		"-H", "Accept-Language: en-US,en;q=0.5",
-		"-H", "Content-Type: application/x-www-form-urlencoded",
-		"-H", "Origin: https://kat.digi4school.at",
-		"-H", "Connection: keep-alive",
-		"-H", "Priority: u=0, i",
-		"-H", "DNT: 1",
-		"-H", "Sec-GPC: 1",
-		"-H", fmt.Sprintf("Cookie: digi4=%s", digi4s),
-		"-d", encodedFormData,
-		"-c", "cookies.txt")
-
-	fmt.Println(curlCmd.Args)
-	out, err := curlCmd.CombinedOutput()
+	resp, err := c.Client.Do(req)
 	if err != nil {
-		fmt.Printf("Error executing curl command: %s\n", err)
+		log.Fatal(err)
 	}
 
-	fmt.Printf("Response:\n%s\n", string(out))
+	fmt.Println(req.Header)
+	body, err := io.ReadAll(resp.Body)
+	fmt.Println(string(body))
+	fmt.Println(len(body))
+	defer resp.Body.Close()
 
-	cookies, err := ioutil.ReadFile("cookies.txt")
-	if err != nil {
-		fmt.Printf("Error reading cookies file: %s\n", err)
+	for _, cookie := range resp.Cookies() {
+		fmt.Println(cookie.Name + ":" + cookie.Value)
 	}
-	fmt.Printf("Cookies:\n%s\n", string(cookies))
-
-	//fmt.Println(req.Header)
-	//body, err := io.ReadAll(resp.Body)
-	//fmt.Println(string(body))
-	//fmt.Println(len(body))
-	//defer resp.Body.Close()
-	//
-	//for _, cookie := range resp.Cookies() {
-	//	fmt.Println(cookie.Name + ":" + cookie.Value)
-	//}
 
 	return BookCookies{}, nil
 }

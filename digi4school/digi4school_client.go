@@ -2,12 +2,14 @@ package digi4school
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -25,6 +27,15 @@ type BookCookies struct {
 
 func NewDigi4SClient(username, password string) *Digi4SchoolClient {
 	transport := http.DefaultTransport
+	envproxy := os.Getenv("HTTPS_PROXY")
+	if envproxy != "" {
+		proxyUrl, _ := url.Parse("https://" + envproxy)
+		proxy := http.ProxyURL(proxyUrl)
+		transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			Proxy:           proxy,
+		} // for mitmprox
+	}
 	jar, _ := cookiejar.New(nil)
 	return &Digi4SchoolClient{
 		Username: username,
@@ -33,7 +44,7 @@ func NewDigi4SClient(username, password string) *Digi4SchoolClient {
 			Jar: jar,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
-			},
+			}, // disable redirects
 			Transport: transport,
 		},
 	}
@@ -54,7 +65,6 @@ func (c *Digi4SchoolClient) Login() error {
 		"Content-Type":     "application/x-www-form-urlencoded; charset=UTF-8",
 		"X-Requested-With": "XMLHttpRequest",
 		"Origin":           "https://digi4school.at",
-		"Connection":       "keep-alive",
 	}
 
 	req, err := http.NewRequest("POST", baseUrl, strings.NewReader(payload.Encode()))
@@ -88,7 +98,6 @@ func (c *Digi4SchoolClient) Logout() error {
 		"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8",
 		"Accept-Language": "en-US,en;q=0.5",
 		"Referer":         "https://digi4school.at/",
-		"Connection":      "keep-alive",
 	}
 
 	req, err := http.NewRequest("GET", baseUrl, nil)
@@ -117,30 +126,20 @@ func (c *Digi4SchoolClient) GetBookCookie(buchId string) (BookCookies, error) {
 	}
 
 	oauthMap2, _ := c.lti1Request(oauthMap)
-	_, _ = c.lti2Request(oauthMap2)
+    finishedCookies, _ := c.lti2Request(oauthMap2)
 
-	return BookCookies{}, fmt.Errorf("failed to retrieve book cookie")
+	return finishedCookies, fmt.Errorf("failed to retrieve book cookie")
 }
 
 func (c *Digi4SchoolClient) lti1Request(params map[string]string) (map[string]string, error) {
 	baseUrl := "https://kat.digi4school.at/lti"
 	var queryParams []string
-	queryParams = append(queryParams, "resource_link_id="+url.QueryEscape(params["resource_link_id"]))
-	queryParams = append(queryParams, "lti_version="+url.QueryEscape(params["lti_version"]))
-	queryParams = append(queryParams, "lti_message_type="+url.QueryEscape(params["lti_message_type"]))
-	queryParams = append(queryParams, "user_id="+url.QueryEscape(params["user_id"]))
-	queryParams = append(queryParams, "oauth_callback="+url.QueryEscape(params["oauth_callback"]))
-	queryParams = append(queryParams, "oauth_nonce="+url.QueryEscape(params["oauth_nonce"]))
-	queryParams = append(queryParams, "oauth_version="+url.QueryEscape(params["oauth_version"]))
-	queryParams = append(queryParams, "oauth_timestamp="+url.QueryEscape(params["oauth_timestamp"]))
-	queryParams = append(queryParams, "oauth_consumer_key="+url.QueryEscape(params["oauth_consumer_key"]))
-	queryParams = append(queryParams, "oauth_signature_method="+url.QueryEscape(params["oauth_signature_method"]))
-	queryParams = append(queryParams, "context_id="+url.QueryEscape(params["context_id"]))
-	queryParams = append(queryParams, "context_type="+url.QueryEscape(params["context_type"]))
-	queryParams = append(queryParams, "roles="+url.QueryEscape(params["roles"]))
-	queryParams = append(queryParams, "oauth_signature="+url.QueryEscape(params["oauth_signature"]))
+	for key, value := range params {
+		queryParams = append(queryParams, url.QueryEscape(key)+"="+url.QueryEscape(value))
+	}
 
 	encodedFormData := strings.Join(queryParams, "&")
+	fmt.Println(encodedFormData)
 	req, err := http.NewRequest("POST", baseUrl, bytes.NewBufferString(encodedFormData))
 	if err != nil {
 		log.Fatal(err)
@@ -151,7 +150,6 @@ func (c *Digi4SchoolClient) lti1Request(params map[string]string) (map[string]st
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Origin", "https://digi4school.at")
-	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Priority", "u=0, i")
 
 	resp, err := c.Client.Do(req)
@@ -171,23 +169,9 @@ func (c *Digi4SchoolClient) lti1Request(params map[string]string) (map[string]st
 func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, error) {
 	baseUrl := "https://a.digi4school.at/lti"
 	var queryParams []string
-	queryParams = append(queryParams, "resource_link_id="+url.QueryEscape(params["resource_link_id"]))
-	queryParams = append(queryParams, "lti_version="+url.QueryEscape(params["lti_version"]))
-	queryParams = append(queryParams, "lti_message_type="+url.QueryEscape(params["lti_message_type"]))
-	queryParams = append(queryParams, "user_id="+url.QueryEscape(params["user_id"]))
-	queryParams = append(queryParams, "oauth_callback="+url.QueryEscape(params["oauth_callback"]))
-	queryParams = append(queryParams, "oauth_nonce="+url.QueryEscape(params["oauth_nonce"]))
-	queryParams = append(queryParams, "oauth_version="+url.QueryEscape(params["oauth_version"]))
-	queryParams = append(queryParams, "oauth_timestamp="+url.QueryEscape(params["oauth_timestamp"]))
-	queryParams = append(queryParams, "oauth_consumer_key="+url.QueryEscape(params["oauth_consumer_key"]))
-	queryParams = append(queryParams, "oauth_signature_method="+url.QueryEscape(params["oauth_signature_method"]))
-	queryParams = append(queryParams, "context_id="+url.QueryEscape(params["context_id"]))
-	queryParams = append(queryParams, "context_type="+url.QueryEscape(params["context_type"]))
-	queryParams = append(queryParams, "roles="+url.QueryEscape(params["roles"]))
-	queryParams = append(queryParams, "custom_code="+url.QueryEscape(params["custom_code"]))
-	queryParams = append(queryParams, "custom_download="+url.QueryEscape(params["custom_download"]))
-	queryParams = append(queryParams, "custom_warn="+url.QueryEscape(params["custom_warn"]))
-	queryParams = append(queryParams, "oauth_signature="+url.QueryEscape(params["oauth_signature"]))
+	for key, value := range params {
+		queryParams = append(queryParams, url.QueryEscape(key)+"="+url.QueryEscape(value))
+	}
 
 	encodedFormData := strings.Join(queryParams, "&")
 	fmt.Println(encodedFormData)
@@ -196,42 +180,39 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 		log.Fatal(err)
 	}
 
-	cc, _ := url.Parse("https://a.digi4school.at")
-	digi4s := ""
-	for _, cookie := range c.Client.Jar.Cookies(cc) {
-		if cookie.Name == "digi4s" {
-			digi4s = cookie.Value
-		}
-	}
-	fmt.Println(digi4s)
-
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:129.0) Gecko/20100101 Firefox/129.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Origin", "https://kat.digi4school.at")
-	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Priority", "u=0, i")
-	req.Header.Set("DNT", "1")
-	req.Header.Set("Sec-GPC", "1")
-	req.Header.Set("Cookie", fmt.Sprintf("digi4s=%s", digi4s))
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println(req.Header)
-	body, err := io.ReadAll(resp.Body)
-	fmt.Println(string(body))
-	fmt.Println(len(body))
+	fmt.Println(resp.StatusCode, resp.Status)
+	fmt.Println(resp.Header)
+	//body, err := io.ReadAll(resp.Body)
+	//fmt.Println(string(body))
+	//io.Copy(os.Stdout, resp.Body)
 	defer resp.Body.Close()
+	fmt.Println("Cookies: ")
 
-	for _, cookie := range resp.Cookies() {
-		fmt.Println(cookie.Name + ":" + cookie.Value)
-	}
-
-	return BookCookies{}, nil
+    finishedCookies := BookCookies{}
+    for _, cookie := range resp.Cookies() {
+		//fmt.Println(cookie.Name + ":" + cookie.Value)
+	    if cookie.Name == "digi4b" {
+            finishedCookies.Digi4B = cookie.Value
+        }
+        if cookie.Name == "digi4p"{
+            finishedCookies.Digi4P = cookie.Value
+        }
+    }
+    if finishedCookies.Digi4B == "" || finishedCookies.Digi4P == ""{
+        //error handling
+    }
+	return finishedCookies, nil
 }
 
 func (c *Digi4SchoolClient) getOauthMap(buchId string) (map[string]string, error) {
@@ -245,7 +226,6 @@ func (c *Digi4SchoolClient) getOauthMap(buchId string) (map[string]string, error
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:129.0) Gecko/20100101 Firefox/129.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Priority", "u=0, i")
 
 	resp, err := c.Client.Do(req)
@@ -267,3 +247,5 @@ func extractParams(formHTML string) map[string]string {
 	}
 	return params
 }
+
+

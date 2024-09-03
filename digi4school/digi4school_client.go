@@ -3,14 +3,17 @@ package digi4school
 import (
 	"bytes"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"regexp"
+	"scar/digi4school/downloader"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 type Digi4SchoolClient struct {
@@ -20,8 +23,11 @@ type Digi4SchoolClient struct {
 }
 
 type BookCookies struct {
-	Digi4B string
-	Digi4P string
+	Digi4Bname string
+	Digi4Bvalue string
+	Digi4Pname string
+	Digi4Pvalue string
+    Path string
 }
 
 type Book struct {
@@ -153,8 +159,40 @@ func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
 }
 
 func (c *Digi4SchoolClient) DownloadBook(bookId string) error {
-	bookCookies, _ = c.getBookCookie(bookId)
+    bookCookies, _ := c.getBookCookie(bookId)
 
+    // create temp dir
+    tmp, err := os.MkdirTemp(os.TempDir(), "bookdl_*")
+    if err != nil {
+        log.Panicln(err)
+    }
+    // save current dir
+    current, err := os.Getwd()
+    if err != nil {
+        log.Panicln(err)
+    }
+    // change into temp dir
+    os.Chdir(tmp)
+    if err != nil {
+        log.Panicln(err)
+    }
+ 
+    digi4bCookie := &http.Cookie{Name: bookCookies.Digi4Bname, Value: bookCookies.Digi4Bvalue}
+    digi4pCookie := &http.Cookie{Name: bookCookies.Digi4Pname, Value: bookCookies.Digi4Pvalue}
+
+    downloader.Cookies = append(downloader.Cookies, digi4pCookie, digi4bCookie)
+    defer os.Chdir(current)
+    defer os.RemoveAll(tmp)
+    page := 1
+    for {
+        // https://a.digi4school.at/ebook/7010/1/index.html
+        err := downloader.DownloadOnePage(fmt.Sprintf("https://a.digi4school.at%s/%d.svg",bookCookies.Path, page))
+        if err != nil{
+            fmt.Println(err)
+            break
+        }
+        page++
+    }
 	return nil
 }
 
@@ -179,7 +217,6 @@ func (c *Digi4SchoolClient) lti1Request(params map[string]string) (map[string]st
 	}
 
 	encodedFormData := strings.Join(queryParams, "&")
-	fmt.Println(encodedFormData)
 	req, err := http.NewRequest("POST", baseUrl, bytes.NewBufferString(encodedFormData))
 	if err != nil {
 		log.Fatal(err)
@@ -234,14 +271,17 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 
 	finishedCookies := BookCookies{}
 	for _, cookie := range resp.Cookies() {
-		if cookie.Name == "digi4b" {
-			finishedCookies.Digi4B = cookie.Value
+        if cookie.Name == "digi4b" {
+			finishedCookies.Digi4Bvalue = cookie.Value
+            finishedCookies.Digi4Bname = cookie.Name
+		    finishedCookies.Path = cookie.Path
 		}
 		if cookie.Name == "digi4p" {
-			finishedCookies.Digi4P = cookie.Value
-		}
-	}
-	if finishedCookies.Digi4B == "" || finishedCookies.Digi4P == "" {
+			finishedCookies.Digi4Pvalue = cookie.Value
+            finishedCookies.Digi4Pvalue = cookie.Name
+        }
+    }
+	if finishedCookies.Digi4Bvalue == "" || finishedCookies.Digi4Pvalue == "" {
 		//error handling
 	}
 	return finishedCookies, nil

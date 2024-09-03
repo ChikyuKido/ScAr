@@ -64,7 +64,6 @@ func downloadFile(url string) {
 }
 
 func DownloadOnePage(url string) error {
-	fmt.Println(url)
 	// create request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

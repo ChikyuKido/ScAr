@@ -88,6 +88,19 @@ func (sm *ScreenManager) SwitchScreen(root tview.Primitive) {
 func (sm *ScreenManager) SwitchToMainScreen() {
 	sm.App.SetRoot(sm.MainScreen, true)
 }
+func (sm *ScreenManager) ShowPopup(text string, okView tview.Primitive, cancelView tview.Primitive) {
+	modal := tview.NewModal().
+		SetText(text).
+		AddButtons([]string{"Cancel", "Ok"}).
+		SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+			if buttonLabel == "Cancel" {
+				sm.SwitchScreen(cancelView)
+			} else {
+				sm.SwitchScreen(okView)
+			}
+		})
+	sm.SwitchScreen(modal)
+}
 
 func (sm *ScreenManager) SetFocus(root tview.Primitive) {
 	sm.App.SetFocus(root)

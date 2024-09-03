@@ -159,8 +159,7 @@ func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
 	return books, nil
 }
 
-func (c *Digi4SchoolClient) DownloadBook(book Book) error {
-	fmt.Println("Downloading book: " + book.Name)
+func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan chan<- int) error {
 	bookCookies, _ := c.getBookCookie(book.DataId)
 
 	// create temp dir
@@ -184,13 +183,12 @@ func (c *Digi4SchoolClient) DownloadBook(book Book) error {
 
 	downloader.Cookies = make([]*http.Cookie, 0)
 	digi4sCookie := &http.Cookie{Name: "digi4s", Value: c.getCurrentDigi4sCookie()}
-	fmt.Println(digi4sCookie)
+
 	downloader.Cookies = append(downloader.Cookies, digi4pCookie, digi4bCookie, digi4sCookie)
 	defer os.Chdir(current)
 	defer os.RemoveAll(tmp)
 	page := 1
 	for {
-		// https://a.digi4school.at/ebook/7010/1/index.html
 		var baseUrl = ""
 		if bookCookies.SubPath != "" {
 			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s/%s", book.DataCode, bookCookies.SubPath)
@@ -203,6 +201,7 @@ func (c *Digi4SchoolClient) DownloadBook(book Book) error {
 			break
 		}
 		page++
+		pageChan <- page
 	}
 	return nil
 }
@@ -281,7 +280,6 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 	defer resp.Body.Close()
 
 	finishedCookies := BookCookies{}
-	fmt.Println(resp.Status)
 
 	finishedCookies.SubPath = c.checkSubPath(resp.Header.Get("Location"))
 
@@ -302,8 +300,6 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 	return finishedCookies, nil
 }
 func (c *Digi4SchoolClient) checkSubPath(url string) string {
-	fmt.Println(url)
-
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		log.Fatal(err)

@@ -11,17 +11,6 @@ import (
 )
 
 func main() {
-	//
-	//client := digi4school.NewDigi4SClient("thomas.14.dietz@posteo.de", "OF@3vQWVxWa87sO&idc")
-	//
-	//if err := client.Login(); err == nil {
-	//	books, _ := client.GetBooks()
-	//	client.DownloadBook(books[0])
-	//	client.Logout()
-	//} else {
-	//	fmt.Println("Login failed")
-	//}
-	//return
 	file, err := os.OpenFile("logfile.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)

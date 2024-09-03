@@ -26,6 +26,12 @@ func createDefaultConfig() map[string]interface{} {
 	} else {
 		data["save_path"] = dir + "/ScAr"
 	}
+	data["moodle_url"] = ""
+	data["moodle_username"] = ""
+	data["moodle_password"] = ""
+
+	data["digi4s_username"] = ""
+	data["digi4s_password"] = ""
 	return data
 }
 
@@ -76,7 +82,7 @@ func (sc *SimpleConfig) GetString(key string) string {
 			return str
 		}
 	}
-	logrus.Fatal("Could not load config key. Maybe wrong type or does not exists: ", key)
+	logrus.Error("Could not load config key. Maybe wrong type or does not exists: ", key)
 	return ""
 }
 func (sc *SimpleConfig) GetStringWD(key string, defaultValue string) string {

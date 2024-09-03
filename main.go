@@ -16,7 +16,8 @@ func main() {
 	client := digi4school.NewDigi4SClient("", "")
 
 	if err := client.Login(); err == nil {
-		client.DownloadBook("24s0bnc6j774")
+		books, _ := client.GetBooks()
+		client.DownloadBook(books[0])
 		client.Logout()
 	} else {
 		fmt.Println("Login failed")

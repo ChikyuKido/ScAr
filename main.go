@@ -13,10 +13,10 @@ import (
 
 func main() {
 
-	client := digi4school.NewDigi4SClient("thomas.14.dietz@posteo.de", "gz^$!Mp!og$gh66$")
+	client := digi4school.NewDigi4SClient("", "")
 
 	if err := client.Login(); err == nil {
-		client.GetBookCookie("23s5agvhgkxf")
+		client.DownloadBook("23s5agvhgkxf")
 		client.Logout()
 	} else {
 		fmt.Println("Login failed")

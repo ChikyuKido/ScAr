@@ -2,14 +2,13 @@ package digi4school
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 )
@@ -25,17 +24,14 @@ type BookCookies struct {
 	Digi4P string
 }
 
+type Book struct {
+	Name     string
+	DataCode string
+	DataId   string
+}
+
 func NewDigi4SClient(username, password string) *Digi4SchoolClient {
 	transport := http.DefaultTransport
-	envproxy := os.Getenv("HTTPS_PROXY")
-	if envproxy != "" {
-		proxyUrl, _ := url.Parse("https://" + envproxy)
-		proxy := http.ProxyURL(proxyUrl)
-		transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-			Proxy:           proxy,
-		} // for mitmprox
-	}
 	jar, _ := cookiejar.New(nil)
 	return &Digi4SchoolClient{
 		Username: username,
@@ -44,7 +40,7 @@ func NewDigi4SClient(username, password string) *Digi4SchoolClient {
 			Jar: jar,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
-			}, // disable redirects
+			},
 			Transport: transport,
 		},
 	}
@@ -118,7 +114,51 @@ func (c *Digi4SchoolClient) Logout() error {
 	return nil
 }
 
-func (c *Digi4SchoolClient) GetBookCookie(buchId string) (BookCookies, error) {
+func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
+	baseUrl := "https://digi4school.at/ebooks"
+	req, err := http.NewRequest("GET", baseUrl, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:129.0) Gecko/20100101 Firefox/129.0")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Priority", "u=0, i")
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	books := make([]Book, 0)
+	div := doc.Find("#shelf")
+	div.Find("a.bag").Each(func(index int, item *goquery.Selection) {
+		dataCode, _ := item.Attr("data-code")
+		dataID, _ := item.Attr("data-id")
+		bookName := item.Find("h1").Text()
+		books = append(books, Book{
+			Name:     bookName,
+			DataCode: dataID,
+			DataId:   dataCode,
+		})
+	})
+	return books, nil
+}
+
+func (c *Digi4SchoolClient) DownloadBook(bookId string) error {
+	bookCookies, _ = c.getBookCookie(bookId)
+
+	return nil
+}
+
+func (c *Digi4SchoolClient) getBookCookie(buchId string) (BookCookies, error) {
 
 	oauthMap, err := c.getOauthMap(buchId)
 	if err != nil {
@@ -126,7 +166,7 @@ func (c *Digi4SchoolClient) GetBookCookie(buchId string) (BookCookies, error) {
 	}
 
 	oauthMap2, _ := c.lti1Request(oauthMap)
-    finishedCookies, _ := c.lti2Request(oauthMap2)
+	finishedCookies, _ := c.lti2Request(oauthMap2)
 
 	return finishedCookies, fmt.Errorf("failed to retrieve book cookie")
 }
@@ -174,7 +214,6 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 	}
 
 	encodedFormData := strings.Join(queryParams, "&")
-	fmt.Println(encodedFormData)
 	req, err := http.NewRequest("POST", baseUrl, bytes.NewBufferString(encodedFormData))
 	if err != nil {
 		log.Fatal(err)
@@ -191,27 +230,20 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(resp.StatusCode, resp.Status)
-	fmt.Println(resp.Header)
-	//body, err := io.ReadAll(resp.Body)
-	//fmt.Println(string(body))
-	//io.Copy(os.Stdout, resp.Body)
 	defer resp.Body.Close()
-	fmt.Println("Cookies: ")
 
-    finishedCookies := BookCookies{}
-    for _, cookie := range resp.Cookies() {
-		//fmt.Println(cookie.Name + ":" + cookie.Value)
-	    if cookie.Name == "digi4b" {
-            finishedCookies.Digi4B = cookie.Value
-        }
-        if cookie.Name == "digi4p"{
-            finishedCookies.Digi4P = cookie.Value
-        }
-    }
-    if finishedCookies.Digi4B == "" || finishedCookies.Digi4P == ""{
-        //error handling
-    }
+	finishedCookies := BookCookies{}
+	for _, cookie := range resp.Cookies() {
+		if cookie.Name == "digi4b" {
+			finishedCookies.Digi4B = cookie.Value
+		}
+		if cookie.Name == "digi4p" {
+			finishedCookies.Digi4P = cookie.Value
+		}
+	}
+	if finishedCookies.Digi4B == "" || finishedCookies.Digi4P == "" {
+		//error handling
+	}
 	return finishedCookies, nil
 }
 
@@ -247,5 +279,3 @@ func extractParams(formHTML string) map[string]string {
 	}
 	return params
 }
-
-

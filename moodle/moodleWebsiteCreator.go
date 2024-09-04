@@ -76,7 +76,7 @@ func createMoodleWebsite() error {
 	var archiverPath = util.Config.GetString("save_path")
 	var moodlePath = filepath.Join(archiverPath, "moodle")
 	if _, err := os.Stat(moodlePath); errors.Is(err, os.ErrNotExist) {
-		return err
+		os.MkdirAll(moodlePath, 0750)
 	}
 	page, err := getCoursePage(moodlePath)
 	if err != nil {
@@ -105,7 +105,7 @@ func createMoodleWebsite() error {
 
 func createOverviewPage(page *coursesOverviewPage, archiverPath string) error {
 	var outputPath = filepath.Join(archiverPath, "html", "moodle", "index.html")
-	tmpl, err := template.ParseFiles("html/templates/moodle-courses-page.html")
+	tmpl, err := template.ParseFiles("html/moodle/templates/moodle-courses-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err
@@ -128,7 +128,7 @@ func createOverviewPage(page *coursesOverviewPage, archiverPath string) error {
 }
 func createCoursePage(course courseData, archiverPath string) error {
 	var outputPath = filepath.Join(archiverPath, "html", "moodle", fmt.Sprintf("%d", course.ID), "index.html")
-	tmpl, err := template.ParseFiles("html/templates/course/moodle-course-page.html")
+	tmpl, err := template.ParseFiles("html/moodle/templates/course/moodle-course-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err
@@ -162,22 +162,22 @@ func createCoursePage(course courseData, archiverPath string) error {
 }
 func createModulePage(mod courseModule, coursePath string) error {
 	var outputPath = filepath.Join(coursePath, fmt.Sprintf("%d.html", mod.ID))
-	assignTemp, err := template.ParseFiles("html/templates/course/mod/mod-assignment-page.html")
+	assignTemp, err := template.ParseFiles("html/moodle/templates/course/mod/mod-assignment-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err
 	}
-	labelTemp, err := template.ParseFiles("html/templates/course/mod/mod-label-page.html")
+	labelTemp, err := template.ParseFiles("html/moodle/templates/course/mod/mod-label-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err
 	}
-	resourceTemp, err := template.ParseFiles("html/templates/course/mod/mod-resource-page.html")
+	resourceTemp, err := template.ParseFiles("html/moodle/templates/course/mod/mod-resource-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err
 	}
-	urlTemp, err := template.ParseFiles("html/templates/course/mod/mod-url-page.html")
+	urlTemp, err := template.ParseFiles("html/moodle/templates/course/mod/mod-url-page.html")
 	if err != nil {
 		logrus.Fatal("Error loading template: ", err)
 		return err

@@ -3,6 +3,7 @@ package digi4school
 import (
 	"bytes"
 	"fmt"
+	"github.com/rivo/tview"
 	"io"
 	"log"
 	"net/http"
@@ -159,7 +160,7 @@ func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
 	return books, nil
 }
 
-func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan chan<- int) error {
+func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan chan<- int, view *tview.TextView) error {
 	bookCookies, _ := c.getBookCookie(book.DataId)
 
 	// create temp dir
@@ -188,6 +189,7 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 	defer os.Chdir(current)
 	defer os.RemoveAll(tmp)
 	page := 1
+	view.SetText(view.GetText(false) + "\nDownload Book: " + book.Name)
 	for {
 		var baseUrl = ""
 		if bookCookies.SubPath != "" {
@@ -195,6 +197,7 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 		} else {
 			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s", book.DataCode)
 		}
+
 		err := downloader.DownloadOnePage(fmt.Sprintf("%s/%d.svg", baseUrl, page))
 		if err != nil {
 			fmt.Println(err)
@@ -203,6 +206,10 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 		page++
 		pageChan <- page
 	}
+	view.SetText(view.GetText(false) + "\nFinished Book Download")
+	view.SetText(view.GetText(false) + "\nStart Converting Book")
+	//TODO: convert
+	view.SetText(view.GetText(false) + "\nFinished Converting Book")
 	return nil
 }
 

@@ -113,7 +113,7 @@ func GetProgressView(index int) tview.Primitive {
 	go func() {
 		for i, book := range booksToDownload {
 			var basePath = util.Config.GetString("save_path")
-			err := digi4sContext.digi4s.DownloadBook(&book, filepath.Join(basePath, "digi4s"), pageChan)
+			err := digi4sContext.digi4s.DownloadBook(&book, filepath.Join(basePath, "digi4s"), pageChan, logTextView)
 			if err != nil {
 				logrus.Error("Failed to download Course: ", err.Error())
 				continue

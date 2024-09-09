@@ -3,16 +3,21 @@ package digi4school
 import (
 	"bytes"
 	"fmt"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/rivo/tview"
+	"github.com/sirupsen/logrus"
 	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"scar/digi4school/downloader"
 	"strings"
+	"sync"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -28,7 +33,6 @@ type BookCookies struct {
 	Digi4Bvalue string
 	Digi4Pname  string
 	Digi4Pvalue string
-	Path        string
 	SubPath     string
 }
 
@@ -161,8 +165,10 @@ func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
 }
 
 func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan chan<- int, view *tview.TextView) error {
-	bookCookies, _ := c.getBookCookie(book.DataId)
-
+	bookCookies, err := c.getBookCookie(book.DataId)
+	if err != nil {
+		logrus.Fatal("Could not get bookCookies: ", err)
+	}
 	// create temp dir
 	tmp, err := os.MkdirTemp(os.TempDir(), "bookdl_*")
 	if err != nil {
@@ -190,6 +196,13 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 	defer os.RemoveAll(tmp)
 	page := 1
 	view.SetText(view.GetText(false) + "\nDownload Book: " + book.Name)
+	jobs := make(chan string, 1000)
+	results := make(chan string, 1000)
+	var wg sync.WaitGroup
+	for i := 0; i < 12; i++ {
+		wg.Add(1)
+		go svgWorker(jobs, results, tmp, &wg)
+	}
 	for {
 		var baseUrl = ""
 		if bookCookies.SubPath != "" {
@@ -197,20 +210,54 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 		} else {
 			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s", book.DataCode)
 		}
-
-		err := downloader.DownloadOnePage(fmt.Sprintf("%s/%d.svg", baseUrl, page))
+		name, err := downloader.DownloadOnePage(fmt.Sprintf("%s/%d.svg", baseUrl, page))
+		if name != "" {
+			jobs <- name
+		}
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
+
 		page++
 		pageChan <- page
 	}
 	view.SetText(view.GetText(false) + "\nFinished Book Download")
 	view.SetText(view.GetText(false) + "\nStart Converting Book")
-	//TODO: convert
+	close(jobs)
+	wg.Wait()
+	close(results)
+	var outputPDFs []string
+	for outputPDF := range results {
+		outputPDFs = append(outputPDFs, outputPDF)
+		logrus.Info(outputPDF)
+	}
+
+	outputFile := fmt.Sprintf(tmp + "/output.pdf")
+	err = api.MergeCreateFile(outputPDFs, outputFile, false, nil)
+	if err != nil {
+		logrus.Error("Failed to merge PDFs: ", err)
+		os.Exit(1)
+	}
 	view.SetText(view.GetText(false) + "\nFinished Converting Book")
 	return nil
+}
+
+func svgWorker(jobs <-chan string, results chan<- string, tempDir string, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for svgFile := range jobs {
+		for i := 0; i < 5; i++ {
+			outputPDF := filepath.Join(tempDir, strings.TrimSuffix(svgFile, ".svg")+".pdf")
+			cmd := exec.Command("/media/Data/Workspaces/GoLand/ScAr/libs/inkscape", filepath.Join(tempDir, svgFile), "--export-type=pdf", "--export-filename="+outputPDF)
+			err := cmd.Run()
+			if err == nil {
+				results <- outputPDF
+				break
+			} else {
+				logrus.Error("Failed to convert try again: ", err)
+			}
+		}
+	}
 }
 
 func (c *Digi4SchoolClient) getBookCookie(buchId string) (BookCookies, error) {
@@ -222,8 +269,8 @@ func (c *Digi4SchoolClient) getBookCookie(buchId string) (BookCookies, error) {
 
 	oauthMap2, _ := c.lti1Request(oauthMap)
 	finishedCookies, _ := c.lti2Request(oauthMap2)
-
-	return finishedCookies, fmt.Errorf("failed to retrieve book cookie")
+	fmt.Println(finishedCookies)
+	return finishedCookies, nil
 }
 
 func (c *Digi4SchoolClient) lti1Request(params map[string]string) (map[string]string, error) {
@@ -294,11 +341,10 @@ func (c *Digi4SchoolClient) lti2Request(params map[string]string) (BookCookies, 
 		if cookie.Name == "digi4b" {
 			finishedCookies.Digi4Bvalue = cookie.Value
 			finishedCookies.Digi4Bname = cookie.Name
-			finishedCookies.Path = cookie.Path
 		}
 		if cookie.Name == "digi4p" {
 			finishedCookies.Digi4Pvalue = cookie.Value
-			finishedCookies.Digi4Pvalue = cookie.Name
+			finishedCookies.Digi4Pname = cookie.Name
 		}
 	}
 	if finishedCookies.Digi4Bvalue == "" || finishedCookies.Digi4Pvalue == "" {

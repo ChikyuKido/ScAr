@@ -20,7 +20,6 @@ func main() {
 	}(file)
 	logrus.SetOutput(file)
 	util.Config.Load()
-
 	screen.CreateApplication()
 	screen.AddScreen(moodle.GetMoodleScreen())
 	screen.AddScreen(digi4school.GetD4SScreen())

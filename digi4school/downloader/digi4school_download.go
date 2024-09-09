@@ -63,12 +63,12 @@ func downloadFile(url string) {
 
 }
 
-func DownloadOnePage(url string) error {
+func DownloadOnePage(url string) (string, error) {
 	// create request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Panicln("failed to create request")
-		return err
+		return "", err
 	}
 
 	// set all cookies created from createCookie function
@@ -82,13 +82,13 @@ func DownloadOnePage(url string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Panicln("failed to get file:", err)
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	// check if page exists
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("ERR 404 - %s", url)
+		return "", fmt.Errorf("ERR 404 - %s", url)
 	}
 
 	// Convert the body to a string
@@ -119,7 +119,7 @@ func DownloadOnePage(url string) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		log.Panicln("failed to create file")
-		return err
+		return "", err
 	}
 	defer file.Close()
 
@@ -127,7 +127,7 @@ func DownloadOnePage(url string) error {
 	_, err = io.WriteString(file, bodyString)
 	if err != nil {
 		log.Panicln("failed to copy file content:", err)
-		return err
+		return "", err
 	}
-	return nil
+	return filename, nil
 }

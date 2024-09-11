@@ -193,7 +193,7 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 
 	downloader.Cookies = append(downloader.Cookies, digi4pCookie, digi4bCookie, digi4sCookie)
 	defer os.Chdir(current)
-	defer os.RemoveAll(tmp)
+	//defer os.RemoveAll(tmp) //TODO: activate again but currently the output.pdf then also gets deleted
 	page := 1
 	view.SetText(view.GetText(false) + "\nDownload Book: " + book.Name)
 	jobs := make(chan string, 1000)
@@ -233,7 +233,7 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 		logrus.Info(outputPDF)
 	}
 
-	outputFile := fmt.Sprintf(tmp + "/output.pdf")
+	outputFile := fmt.Sprintf("output.pdf")
 	err = api.MergeCreateFile(outputPDFs, outputFile, false, nil)
 	if err != nil {
 		logrus.Error("Failed to merge PDFs: ", err)
@@ -248,7 +248,7 @@ func svgWorker(jobs <-chan string, results chan<- string, tempDir string, wg *sy
 	for svgFile := range jobs {
 		for i := 0; i < 5; i++ {
 			outputPDF := filepath.Join(tempDir, strings.TrimSuffix(svgFile, ".svg")+".pdf")
-			cmd := exec.Command("/media/Data/Workspaces/GoLand/ScAr/libs/inkscape", filepath.Join(tempDir, svgFile), "--export-type=pdf", "--export-filename="+outputPDF)
+			cmd := exec.Command("./libs/inkscape", filepath.Join(tempDir, svgFile), "--export-type=pdf", "--export-filename="+outputPDF)
 			err := cmd.Run()
 			if err == nil {
 				results <- outputPDF

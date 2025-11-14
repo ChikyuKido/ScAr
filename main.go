@@ -24,5 +24,4 @@ func main() {
 	screen.AddScreen(moodle.GetMoodleScreen())
 	screen.AddScreen(digi4school.GetD4SScreen())
 	screen.RunApplication()
-
 }

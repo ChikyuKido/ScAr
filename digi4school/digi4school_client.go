@@ -2,6 +2,7 @@ package digi4school
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/rivo/tview"
@@ -18,8 +19,6 @@ import (
 	"scar/digi4school/downloader"
 	"strings"
 	"sync"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
 type Digi4SchoolClient struct {
@@ -127,45 +126,56 @@ func (c *Digi4SchoolClient) Logout() error {
 }
 
 func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
-	baseUrl := "https://digi4school.at/ebooks"
-	req, err := http.NewRequest("GET", baseUrl, nil)
+	baseURL := "https://digi4school.at/br/xhr/v2/synch"
+	req, err := http.NewRequest("GET", baseURL, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; rv:129.0) Gecko/20100101 Firefox/129.0")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Priority", "u=0, i")
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		panic(err)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
 	}
 
-	books := make([]Book, 0)
-	div := doc.Find("#shelf")
-	div.Find("a.bag").Each(func(index int, item *goquery.Selection) {
-		dataCode, _ := item.Attr("data-code")
-		dataID, _ := item.Attr("data-id")
-		bookName := item.Find("h1").Text()
+	// Struct for decoding the API response
+	type apiResponse struct {
+		Books []struct {
+			ID        int    `json:"id"`
+			Title     string `json:"title"`
+			Code      string `json:"code"`
+			Publisher string `json:"publisher"`
+		} `json:"books"`
+	}
+
+	var result apiResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	// Convert API data into your Book type
+	books := make([]Book, 0, len(result.Books))
+	for _, b := range result.Books {
 		books = append(books, Book{
-			Name:     bookName,
-			DataCode: dataID,
-			DataId:   dataCode,
+			Name:     b.Title,
+			DataCode: b.Code,
+			DataId:   fmt.Sprintf("%d", b.ID),
 		})
-	})
+	}
+
 	return books, nil
 }
 
 func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan chan<- int, view *tview.TextView) error {
-	bookCookies, err := c.getBookCookie(book.DataId)
+	bookCookies, err := c.GetBookCookie(book.DataCode)
 	if err != nil {
 		logrus.Fatal("Could not get bookCookies: ", err)
 	}
@@ -206,10 +216,11 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 	for {
 		var baseUrl = ""
 		if bookCookies.SubPath != "" {
-			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s/%s", book.DataCode, bookCookies.SubPath)
+			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s/%s", book.DataId, bookCookies.SubPath)
 		} else {
-			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s", book.DataCode)
+			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s", book.DataId)
 		}
+		fmt.Println(baseUrl)
 		name, err := downloader.DownloadOnePage(fmt.Sprintf("%s/%d.svg", baseUrl, page))
 		if name != "" {
 			jobs <- name
@@ -222,6 +233,11 @@ func (c *Digi4SchoolClient) DownloadBook(book *Book, filePath string, pageChan c
 		page++
 		pageChan <- page
 	}
+	//files, err := os.ReadDir("/tmp/bookdl_3091095113/")
+	//for _, file := range files {
+	//	name := file.Name()
+	//	jobs <- name
+	//}
 	view.SetText(view.GetText(false) + "\nFinished Book Download")
 	view.SetText(view.GetText(false) + "\nStart Converting Book")
 	close(jobs)
@@ -248,7 +264,7 @@ func svgWorker(jobs <-chan string, results chan<- string, tempDir string, wg *sy
 	for svgFile := range jobs {
 		for i := 0; i < 5; i++ {
 			outputPDF := filepath.Join(tempDir, strings.TrimSuffix(svgFile, ".svg")+".pdf")
-			cmd := exec.Command("./libs/inkscape", filepath.Join(tempDir, svgFile), "--export-type=pdf", "--export-filename="+outputPDF)
+			cmd := exec.Command("inkscape", filepath.Join(tempDir, svgFile), "--export-type=pdf", "--export-filename="+outputPDF)
 			err := cmd.Run()
 			if err == nil {
 				results <- outputPDF
@@ -260,13 +276,12 @@ func svgWorker(jobs <-chan string, results chan<- string, tempDir string, wg *sy
 	}
 }
 
-func (c *Digi4SchoolClient) getBookCookie(buchId string) (BookCookies, error) {
-
+func (c *Digi4SchoolClient) GetBookCookie(buchId string) (BookCookies, error) {
 	oauthMap, err := c.getOauthMap(buchId)
 	if err != nil {
 		return BookCookies{}, fmt.Errorf("could not refresh digi4s cookie: %v", err)
 	}
-
+	fmt.Println(oauthMap)
 	oauthMap2, _ := c.lti1Request(oauthMap)
 	finishedCookies, _ := c.lti2Request(oauthMap2)
 	fmt.Println(finishedCookies)
